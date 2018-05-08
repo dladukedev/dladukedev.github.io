@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+<html>
+
+<head>
+    <!-- Material Design Lite -->
+    <script src="https://code.getmdl.io/1.3.0/material.min.js"></script>
+    <link rel="stylesheet" href="src/material.min.css" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+    <link rel="stylesheet" href="src/material-override.css" />
+
+    <!-- Other Styles -->
+    <link rel="stylesheet" href="./src/main.css" />
+
+    <!-- Vue -->
+    <script src="https://unpkg.com/vue/dist/vue.js"></script>
+    <script src="https://unpkg.com/vue-router/dist/vue-router.js"></script>
+
+    <!-- Meta -->
+    <title>Donovan J. LaDuke</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="icon" href="favicon.ico">
+    <meta name="keywords" content="Donovan, LaDuke, Mobile, Developer">
+    <meta name="description" content="Donovan J. LaDuke's portfolio/resume website">
+    <meta charset="UTF-8">
+    <meta name="author" content="Donovan J. LaDuke">
+</head>
+
+<body>
+    <div id="app" class="full-height">
+        <!-- Always shows a header, even in smaller screens. -->
+        <div class="mdl-layout mdl-js-layout mdl-layout--fixed-header full-height">
+            <header class="mdl-layout__header">
+                <div class="mdl-layout__header-row">
+                    <!-- Title -->
+                    <span class="mdl-layout-title">Donovan J LaDuke</span>
+                    <!-- Add spacer, to align navigation to the right -->
+                    <div class="mdl-layout-spacer"></div>
+                    <!-- Navigation. We hide it in small screens. -->
+                    <nav class="mdl-navigation mdl-layout--large-screen-only">
+                        <router-link to="/" class="mdl-navigation__link">Home</router-link>
+                        <router-link to="/About" class="mdl-navigation__link">About</router-link>
+                        <router-link to="/Contact" class="mdl-navigation__link">Contact</router-link>
+                    </nav>
+                </div>
+            </header>
+            <div class="mdl-layout__drawer mdl-layout--small-screen-only">
+                <span class="mdl-layout-title">Donovan J LaDuke</span>
+                <nav class="mdl-navigation">
+                    <router-link to="/" class="mdl-navigation__link">Home</router-link>
+                    <router-link to="/About" class="mdl-navigation__link">About</router-link>
+                    <router-link to="/Contact" class="mdl-navigation__link">Contact</router-link>
+                </nav>
+            </div>
+            <main class="mdl-layout__content full-height">
+                <div class="page-content full-height">
+                    <transition name="slide" mode="out-in">
+                        <router-view></router-view>
+                    </transition>
+                </div>
+            </main>
+        </div>
+    </div>
+    <script src="src/main.js"></script>
+</body>
+
+</html>

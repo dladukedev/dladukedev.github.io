@@ -1,0 +1,169 @@
+html body .full-height{
+    height: 100%;
+}
+
+/* Vue Transitions */
+.slide-enter-active, .slide-leave-active {
+  transition: transform .5s ease,
+              opacity .5s ease;
+}
+.slide-enter {
+  transform: translate(100px, 0);
+  opacity: 0;
+}
+
+ .slide-leave-active {
+  transform: translate(-100px, 0);
+  opacity: 0;
+}
+/* //Vue Transitions */
+
+/* Home Styles */
+.centered-text {
+    height: 100%;
+    display: flex;
+    justify-content: center; 
+    align-items: center; 
+    text-align: center;
+    flex-direction: column;
+}
+
+.primary-header {
+    font-size: 6vw;
+    margin: 0;
+}
+
+.primary-sub-header {
+    font-size: 2vw;
+    margin: 0;
+}
+
+@media (max-width: 800px) {
+    .primary-header {
+        font-size: 10vw;
+    }
+
+    .primary-sub-header {
+        font-size: 4vw;
+    }
+}
+/* //Home Styles */
+
+
+/* About Styles */
+.quick-facts-content, .fun-fact, .summary-text {
+    font-size: 16px;
+}
+
+.summary-container {
+    display: flex;
+    align-items: center; 
+    flex-direction: column;
+    padding: 6vw;
+}
+
+.about-image {
+    border-radius: 50%;
+    max-width: 300px;
+}
+
+.summary-text-container {
+    width: 100%;
+    padding: 1vw 0;
+}
+
+.tier1-header {
+    margin: 0 0 32px 0;
+}
+
+.tier2-header {
+    font-size: 32px;
+    margin: 32px 0 8px 0;
+}
+
+.tier3-header {
+    font-size: 20px;
+    margin: 0 0 0 16px;
+}
+
+.quick-facts-content {
+    margin: 0 0 4px 40px;
+}
+
+/* //About Styles */
+
+
+/* Contact Styles */
+.contact-block {
+    fill: rgb(153, 153, 153);
+    color: rgb(153, 153, 153);
+    padding: 2vw;
+    height: 50%;
+    text-decoration: none;
+    display: flex;
+    justify-content: center; 
+    align-items: center; 
+}
+
+.icon {
+    width: 40%;
+    max-width: 350px;
+    min-width: 150px;
+}
+
+.contact-label {
+    font-size: 3vw;
+    padding: 16px;
+}
+
+@media (max-width: 800px) {
+    .contact-block {
+        flex-direction: column;
+    }
+
+    .contact-label {
+        font-size: 5vw;
+    }
+}
+
+.email-block { 
+    transition: fill 0.5s ease, 
+                color 0.5s ease;
+}
+
+.email-block:hover {
+  color: rgb(199,22,16);
+  fill: rgb(199,22,16);
+}
+
+.linkedin-block { 
+    transition: fill 0.5s ease, 
+                color 0.5s ease;
+}
+
+.linkedin-block:hover {
+  color: rgb(0, 119, 181);
+  fill: rgb(0, 119, 181);
+}
+
+.twitter-block { 
+    transition: fill 0.5s ease, 
+                color 0.5s ease;
+}
+
+.twitter-block:hover {  
+  color: rgb(29, 161, 242);
+  fill: rgb(29, 161, 242);
+}
+
+.github-block { 
+    transition: fill 0.5s ease, 
+                color 0.5s ease;
+}
+
+.github-block:hover {
+  color: rgb(35, 154, 59);
+  fill: rgb(35, 154, 59);
+}
+/* //Contact Styles */
+

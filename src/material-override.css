@@ -1,0 +1,14 @@
+.mdl-layout__header-row, .mdl-layout__header {
+  height: 56px !important;
+  min-height: 56px !important;
+}
+
+.mdl-layout__header-row .mdl-navigation__link {
+  line-height: 56px !important;
+}
+
+@media (min-width: 1024px) {
+  .mdl-layout__header-row {
+    padding: 0 40px !important;
+  }
+}
