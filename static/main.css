@@ -61,10 +61,16 @@ header {
     box-shadow: 0 2px 15px 0 rgba(0,0,0,0.5);
 }
 
-nav {
-    display: grid;
-    grid-auto-flow: column;
-    align-items: center;
+header nav {
+        display: none;
+    }
+
+@media(min-width: 512px) {    
+    header nav {
+        display: grid;
+        grid-auto-flow: column;
+        align-items: center;
+    }
 }
 
 .nav-header {
@@ -144,9 +150,16 @@ section {
 
 .about-image {
     border-radius: 50%;
-    max-width: 300px;
+    width: 240px;
     margin: 0 auto;
     display: block;
+}
+
+
+@media(min-width: 512px) {    
+    .about-image {
+        width: 300px;
+    }
 }
 
 
@@ -192,18 +205,18 @@ section {
 }
 
 .contact-header {
-    font-size: 3rem;
+    font-size: 2rem;
     text-decoration: underline;
 }
 
 .contact-item {
     display: grid;
-    gap: 32px;
     grid-auto-flow: column;
-   align-items: center;
+    gap: 8px;
+    align-items: center;
     justify-content: center;
     color: var(--text);
-    font-size: 4rem;
+    font-size: 2rem;
 }
 
 .email-block:hover {
@@ -221,11 +234,30 @@ section {
     fill: rgb(0, 119, 181);
 }
 
+.contact-label {
+    cursor: pointer;
+}
+
+.icon {
+    height: 64px;
+    width: 64px;
+}
+
+@media(min-width: 512px) {    
+
+.contact-header {
+    font-size: 3rem;
+    }
+
+
+.contact-item {
+    gap: 32px;
+    font-size: 4rem;
+}
+
 .icon {
     height: 128px;
     width: 128px;
 }
 
-.contact-label {
-    cursor: pointer;
 }
