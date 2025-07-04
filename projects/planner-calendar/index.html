@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Calendar</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      font-family: 'Arial';
+      box-sizing: border-box;
+    }
+
+    @media print {
+      .no-print {
+        display: none;
+      }
+    }
+
+    .calendar-header {
+      height: .5in;
+    }
+
+    body {
+      padding: .2in .5in;
+    }
+
+    h1 {
+      font-size: .4in;
+      margin-bottom: .08in;
+    }
+
+    table,
+    th,
+    td {
+      border: 1px solid black;
+    }
+
+    table {
+      border-collapse: collapse;
+    }
+
+    th {
+      height: .2in;
+    }
+
+    td {
+      font-weight: bold;
+      padding: .05in;
+      width: 1.4in;
+      height: 1.2in;
+      vertical-align: top;
+    }
+
+    td.other-month {
+      color: darkgrey;
+    }
+
+    footer {
+      margin: 8px 0;
+    }
+
+    footer>ul {
+      margin-left: 8px;
+    }
+
+    footer>ul>li {
+      margin-left: 8px;
+    }
+  </style>
+</head>
+
+<body>
+  <header>
+    <h1 id="header"></h1>
+  </header>
+  <table>
+    <thead id="calendarHeader"></thead>
+    <tbody id="calendarBody"></tbody>
+  </table>
+
+  <footer class="no-print">
+    <h3>Planner Calendar Generator</h3>
+    <br />
+    <p>This calendar only ever shows 5 weeks, removing the first week if necessary and will fit on a 8.5x11" landscape
+      page when printed</p>
+    <br />
+    <p>To render a specific calendar, use the relevant query params</p>
+    <ul>
+      <li>"month" for the month, starting with 1 for January (e.g. "month=6")
+      <li>"year" for the year (e.g. "year=2025")</li>
+      <li>"day" for the day of the week to start the week, starting with 1 for Sunday (e.g. "day=0")</li>
+    </ul>
+    <br />
+    <p>This is a micro-project, check the source to see the code and do what you want with it!</p>
+    <br />
+    <p>Did you find this helpful? Buy me a coffee - <a href="https://ko-fi.com/donovanjladuke">Ko-fi</a></p>
+    <br />
+    <p>Donovan LaDuke 2025 - <a href="https://opensource.org/license/mit">MIT License</a></p>
+  </footer>
+
+  <script>
+    /*
+      Copyright 2025 Donovan LaDuke
+
+      Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the “Software”), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+      The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+      THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+    */
+
+    /**
+     * @typedef RequestCalendar
+     * @type {object}
+     * @property {number} month - The month to be displaed, 0-based for JS {Date}s (0 = Jan, 1 = Feb}
+     * @property {number} year - The year value of the month to be displayed
+     * @property {number} startDay - The start day, 0-based for JS {Date}s (0 = Sun, 1 = Mon)
+     */
+
+    /**
+     * @typedef CalendarModel
+     * @type {object}
+     * @property {string} monthName - The name of the calendar month
+     * @property {year} year - The year of the calendar month
+     * @property {number[]} days - The ordered offsets of the days of the week, 0-based for JS (0 = Sun, 1 = Mon) ..
+     * @property {DateModel[][]} weeks - The list of weeks of dates for the calendar month to display
+     */
+
+    /**
+     * @typedef DateModel
+     * @type {object}
+     * @property {number} date - The numerical date of the month
+     * @property {boolean} isCalendarMonth - Is this date within the month to be displayed
+     */
+
+    /**
+     * @typedef CalendarHtml
+     * @type {object}
+     * @property {string} headerHtml - The HTML for the header
+     * @property {string} daysHtml - The HTML for the days of the week
+     * @property {string} weeksHtml - The HTML for the dates
+     */
+
+    /**
+     * Get the human readable name of the requested calendar month
+     * @param {RequestCalendar} calendar - The requested calendar
+     * @returns {string} - The month name to be displayed (e.g. "January", "February"...)
+     */
+    const getCalendarMonthName = (calendar) => {
+      return new Date(calendar.year, calendar.month)
+        .toLocaleString('default', {month: 'long'});
+    }
+
+    /**
+     * Get the all possible dates the calendar could show, including the weeks before and after that could
+     * be partial weeks or weeks in another month. The result of this function will always be 42 dates or 
+     * 6 weeks.
+     * @param {RequestCalendar} calendar - The requested calendar
+     * @returns {DateModel[]} - The list of dates the could be displayed
+     */
+    const getEligibleDates = (calendar) => {
+      const firstOfMonth = new Date(calendar.year, calendar.month)
+      const dayOfStart = firstOfMonth.getDay()
+
+      const startDayOffset = calendar.startDay === 6 ? 0 : 1 + calendar.startDay
+      const start = new Date(calendar.year, calendar.month, startDayOffset - dayOfStart)
+
+      return [...new Array(42).keys()].map(offset => {
+        const date = new Date(start.getFullYear(), start.getMonth(), start.getDate() + offset)
+        return {
+          date: date.getDate(),
+          isCalendarMonth: date.getMonth() === calendar.month,
+        }
+      })
+    }
+
+    /**
+     * Takes the list of dates and removes a week to get to the correct number of dates for display
+     * @param {DateModel[]} - The list of dates the could be displayed
+     * @returns {DateModel[]} - The list of dates that will be displayed
+     */
+    const removeExtraWeek = (dates) => {
+      const firstWeek = dates.slice(0, 7)
+      const lastWeek = dates.slice(-7)
+      const rest = dates.slice(7, -7)
+
+      const lastInMonthCount = lastWeek.filter(day => day.isCalendarMonth).length
+
+      return lastInMonthCount === 0
+        ? [...firstWeek, ...rest]
+        : [...rest, ...lastWeek]
+    }
+
+    /**
+     * Split the list of dates into 7 day week chunks
+     * @param {DateModel[]} - The list of dates that will be displayed
+     * @returns {DateModel[][]} - The list of dates split into weeks
+     */
+    const splitWeeks = (dates) => {
+      return [
+        dates.slice(0, 7),
+        dates.slice(7, 14),
+        dates.slice(14, 21),
+        dates.slice(21, 28),
+        dates.slice(28, 35),
+      ]
+    }
+
+    /**
+     * Given a start day offset, returns the list of start day offsets in the correct order with the
+     * start day as the first value
+     * @param {number} - The offset of the start day to come first
+     * @returns {number[]} - The ordered list of offsets with the provided date first
+     */
+    const orderDays = (startDay) => {
+      const offsets = [0, 1, 2, 3, 4, 5, 6]
+
+      const start = offsets.slice(startDay, 7)
+      const end = offsets.slice(0, startDay)
+
+      return [...start, ...end]
+    }
+
+
+    /**
+     * Build the pieces of the calendar model to be rendered
+     * @param {RequestCalendar} calendar - The requested calendar
+     * @returns {CalendarModel} - The data for the calendar to be rendered
+     */
+    const buildCalendarModel = (calendar) => {
+      const eligibleDates = getEligibleDates(calendar)
+      const dates = removeExtraWeek(eligibleDates)
+      const weeks = splitWeeks(dates)
+
+      return {
+        monthName: getCalendarMonthName(calendar),
+        year: calendar.year.toString(),
+        days: orderDays(calendar.startDay),
+        weeks,
+      }
+    }
+
+    /**
+     * Builds the HTML for an individual date
+     * @param {DateModel} day - The date to be converted to HTML
+     * @returns {string} - The resulting HTML string
+     */
+    const asDateHtml = (day) => {
+      const classes = day.isCalendarMonth ? 'date' : 'date other-month'
+
+      return `<td class="${classes}">${day.date}</td>`
+    }
+
+    /**
+     * Builds the HTML for a week
+     * @param {DateModel[]} week - The week to be converted to HTML
+     * @returns {string} - The resulting HTML string
+     */
+    const asWeekHtml = (week) => {
+      const weekHtml = week
+        .map(asDateHtml)
+        .join('')
+
+      return `<tr>${weekHtml}</tr>`
+    }
+
+    /**
+     * Builds the HTML for the list of days header
+     * @param {number[]} days - The offsets for the days of the week
+     * @returns {string} - The resulting HTML string
+     */
+    const asDaysHeaderHtml = (days) => {
+      const sunday = new Date(2025, 5, 1) // 06/01/2025 - Sunday
+
+      const daysHtml = days.map(offset => {
+        const day = new Date(sunday.getFullYear(), sunday.getMonth(), sunday.getDate() + offset)
+
+        const dayString = day.toLocaleString('default', {weekday: 'long'});
+        return `<th>${dayString}</th>`
+      }).join('')
+
+      return `<tr>${daysHtml}</tr>`
+    }
+
+    /**
+     * Convert the calendar model into the HTML parts to be displayed
+     * @param {CalendarModel} calendarModel - The calendar data for display
+     * @returns {CalendarHtml} - The HTML parts for display
+     */
+    const buildCalendarHtml = (calendarModel) => {
+      const headerHtml = `${calendarModel.monthName} ${calendarModel.year}`
+
+      const weeksHtml = calendarModel.weeks
+        .map(asWeekHtml)
+        .join('')
+
+      const daysHtml = asDaysHeaderHtml(calendarModel.days)
+
+      return {
+        headerHtml,
+        weeksHtml,
+        daysHtml,
+      }
+    }
+
+    /**
+     * Update the calendar displayed
+     * @param {() => RequestCalendar} getRequestCalendar - Get the requested calendar information
+     * @param {(calendarHtml: CalendarHtml) => void} updateCalendarUi - update the calendar UI
+     */
+    const updateCalendar = (getRequestCalendar, updateCalendarUi) => {
+      const calendar = getRequestCalendar()
+      const calendarModel = buildCalendarModel(calendar)
+      const calendarHtml = buildCalendarHtml(calendarModel)
+      updateCalendarUi(calendarHtml)
+    }
+
+    /**
+     * Parses the given month and determines if it is a valid value
+     * @param {string} monthParam - The month value to parse
+     * @returns {number | null} - The parsed value or null if invalid
+     */
+    const parseMonth = (monthParam) => {
+      if (!monthParam) return null
+
+      const parsedMonth = parseInt(monthParam)
+
+      const isValid = !isNaN(parsedMonth) && parsedMonth <= 12 && parsedMonth >= 1
+      return isValid ? parsedMonth - 1 : null
+    }
+
+    /**
+     * Parses the given year and determines if it is a valid value
+     * @param {string} yearParam - The year value to parse
+     * @returns {number | null} - The parsed value or null if invalid
+     */
+    const parseYear = (yearParam) => {
+      if (!yearParam) return null
+
+      const parsedYear = parseInt(yearParam)
+
+      const isValid = !isNaN(parsedYear) && parsedYear >= 0
+      return isValid ? parsedYear : null
+    }
+
+    /**
+     * Parses the given start day and determines if it is a valid value
+     * @param {string} startDayParam - The start day value to parse
+     * @returns {number | null} - The parsed value or null if invalid
+     */
+    const parseStartDay = (startDayParam) => {
+      if (!startDayParam) return null
+
+      const parsedStartDay = parseInt(startDayParam)
+      const isValid = !isNaN(parsedStartDay) && parsedStartDay >= 1 && parsedStartDay <= 7
+      return isValid ? parsedStartDay - 1 : null
+    }
+
+    /**
+     * Get the Date at the current moment
+     * @returns {Date} - The {@link Date} right now
+     */
+    const getDateNow = () => new Date()
+
+    /**
+     * Parse the requested calendar from the query parameters
+     * @param {() => Date} [getNow] - Function to get the current date
+     * @returns {RequestCalendar} - The requested calendar
+     */
+    const getCalendarFromParams = (getNow = getDateNow) => {
+      const now = getNow()
+      const urlParams = new URLSearchParams(window.location.search);
+      const monthParam = urlParams.get('month');
+      const yearParam = urlParams.get('year');
+      const startDayParam = urlParams.get('day');
+
+      const month = parseMonth(monthParam) || now.getMonth()
+      const year = parseYear(yearParam) || now.getFullYear()
+      const startDay = parseStartDay(startDayParam) || 0 // Sunday Default
+
+      return {month, year, startDay}
+    }
+
+    /**
+     * Render the HTML for the calendar into the relevant parts of the DOM
+     * @param {CalendarHtml} calendarHtml - the calendar html to render
+     */
+    const updateCalendarUi = (calendarHtml) => {
+      document.getElementById('header').innerHTML = calendarHtml.headerHtml
+      document.getElementById('calendarBody').innerHTML = calendarHtml.weeksHtml
+      document.getElementById('calendarHeader').innerHTML = calendarHtml.daysHtml
+    }
+
+    // On load immediately run the update to render the calendar
+    updateCalendar(getCalendarFromParams, updateCalendarUi)
+  </script>
+</body>
+
+</html>
