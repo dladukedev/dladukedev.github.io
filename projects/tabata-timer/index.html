@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tabata Timer</title>
+</head>
+
+<body>
+
+
+  <script>
+    const initialState = {
+      config: {
+        rounds: 8,
+        sets: 5,
+        breakLengthMs: 60_000,
+        restLengthMs: 20_000,
+        workLengthMs: 10_000,
+      },
+      current: null
+    }
+
+    const state = initialState
+
+    const reduce = ({action, payload}, state) => {
+      return action === 'START' ? start(state)
+        : action === 'TICK' ? tick(state)
+          : state
+    }
+
+    // start
+    const start = (state) => {
+      return {
+        ...state,
+        current: {
+          round: 1,
+          set: 1,
+          workRestBreak: 'work',
+          timer: state.workLengthMs,
+          complete: false,
+        }
+      }
+    }
+
+    // tick
+    const tick = (state) => {
+      const nextTime = state.current.timer - 1
+      const isNextTimeJustTick = nextTime !== 0
+      const isComplete = state.current.set === state.config.sets && state.current.round === state.config.rounds
+      const isNextRoundBreak = state.current.set === state.config.sets
+      const isNextRound = state.current.workRestBreak === 'break'
+      const isNextRest = state.current.workRestBreak === 'work'
+      const isNextSet = state.current.workRestBreak === 'rest'
+
+      const newTimer = isNextTimeJustTick ? {
+        ...state.current,
+        timer: nextTime
+      } : isComplete ? {
+        ...state.current,
+        timer: 0,
+        complete: true,
+      } : isNextRoundBreak ? {
+        ...state.current,
+        workRestBreak: 'break',
+        timer: state.config.breakLengthMs,
+      } : isNextRound ? {
+        ...state.current,
+        set: 1,
+        round: state.current.round + 1,
+        workRestBreak: 'work',
+        timer: state.config.workLengthMs,
+      } : isNextRest ? {
+        ...state.current,
+        workRestBreak: 'rest',
+        timer: state.config.restLengthMs,
+      } : isNextSet ? {
+        ...state.current,
+        set: state.current.set + 1,
+        workRestBreak: 'work',
+        timer: state.config.workLengthMs,
+      } : state.current
+
+      return {
+        ...state,
+        current: newTimer
+      }
+    }
+
+    // pause
+
+    const sideEffectHandler = (action, state) => {
+
+    }
+
+
+  </script>
+</body>
+
+</html>

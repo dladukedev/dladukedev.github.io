@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tape Calc</title>
+  <script type="text/javascript" src="./math.js"></script>
+
+  <style>
+    #tape {
+      font-family: monospace;
+      white-space: pre;
+    }
+  </style>
+</head>
+
+<body>
+
+  <button onclick="appendNumber(0)">0</button>
+  <button onclick="appendNumber(1)">1</button>
+  <button onclick="appendNumber(2)">2</button>
+  <button onclick="appendNumber(3)">3</button>
+  <button onclick="appendNumber(4)">4</button>
+  <button onclick="appendNumber(5)">5</button>
+  <button onclick="appendNumber(6)">6</button>
+  <button onclick="appendNumber(7)">7</button>
+  <button onclick="appendNumber(8)">8</button>
+  <button onclick="appendNumber(9)">9</button>
+
+  <br />
+  <br />
+
+  <button onclick="doubleZero()">00</button>
+  <button onclick="tripleZero()">000</button>
+  <button onclick="decimal()">.</button>
+  <button onclick="invert()">+/-</button>
+
+  <br />
+  <br />
+
+  <button onclick="appendOperation('ADD')">+</button>
+  <button onclick="appendOperation('SUB')">-</button>
+  <button onclick="appendOperation('MUL')">x</button>
+  <button onclick="appendOperation('DIV')">÷</button>
+
+  <br />
+  <br />
+
+  <button onclick="demo()">=</button>
+
+  <br />
+  <br />
+
+  <button onclick="backspace()">Back</button>
+  <button onclick="clear()">C</button>
+  <button onclick="clearTape()">CT</button>
+  <button onclick="clearEntry()">CE</button>
+
+  <br />
+  <br />
+
+  <div id="current">0</div>
+  <div id="tape"></div>
+
+  <script>
+    math.config({
+      number: 'BigNumber',
+    })
+
+    const OPERATION = {
+      ADD: 'ADD',
+      SUB: 'SUB',
+      DIV: 'DIV',
+      MUL: 'MUL',
+    }
+
+    let log = [{op: 'INIT', num: math.bignumber(0)}]
+
+    let currentNum = ''
+    let currentOp = 'INIT'
+
+    const decimal = () => {
+      if (currentNum.includes('.')) return
+
+      currentNum += '.'
+    }
+    const invert = () => {
+      const [last, ...rest] = log
+
+      let current = last.num ?? math.bignumber(0)
+      current = math.multiply(current, math.bignumber(-1))
+
+      log = [{op: last.op, num: current}, ...rest]
+
+      document.getElementById("current").innerHTML = current.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",")
+    }
+    const doubleZero = () => {
+      const [last, ...rest] = log
+
+      let current = last.num ?? math.bignumber(0)
+      current = math.multiply(current, math.bignumber(100))
+
+      log = [{op: last.op, num: current}, ...rest]
+
+      document.getElementById("current").innerHTML = current.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",")
+    }
+    const tripleZero = () => {
+      const [last, ...rest] = log
+
+      let current = last.num ?? math.bignumber(0)
+      current = math.multiply(current, math.bignumber(1000))
+
+      log = [{op: last.op, num: current}, ...rest]
+
+      document.getElementById("current").innerHTML = current.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",")
+    }
+    const clear = () => { }
+    const backspace = () => {
+
+    }
+    // Clear vs Clear Tape vs Clear Entry
+
+
+    const appendNumber = (num) => {
+      const [last, ...rest] = log
+
+      let current = last.num ?? math.bignumber(0)
+      const incremented = math.multiply(current, math.bignumber(10))
+      current = math.add(incremented, math.bignumber(num))
+
+      log = [{op: last.op, num: current}, ...rest]
+
+      document.getElementById("current").innerHTML = current.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",")
+    }
+
+    const appendOperation = (op) => {
+      const [last, ...rest] = log
+
+      if (!last.num) {
+        log = [{op, num: null}, ...rest]
+      } else {
+
+        const newOp = {
+          op: op,
+          num: null
+        }
+
+        log = [newOp, last, ...rest]
+      }
+
+      document.getElementById("current").innerHTML = '0'
+    }
+
+    const clearEntry = () => {
+      const [last, ...rest] = log
+
+      log = [{op: last.op, num: math.bignumber(0)}, ...rest]
+      document.getElementById("current").innerHTML = '0'
+    }
+
+    const clearTape = () => {
+      log = [{op: 'INIT', num: math.bignumber(0)}]
+
+      document.getElementById("current").innerHTML = '0'
+      document.getElementById("tape").innerHTML = "CLEARED"
+    }
+
+    const demo = () => {
+      let text = ""
+      let total = math.chain(math.bignumber(0))
+
+      let logx = [...log].reverse()
+      logx.forEach(({op, num}) => {
+        const sign = op === 'ADD' ? '+'
+          : op === 'SUB' ? '-'
+            : op === 'MUL' ? 'x'
+              : op === 'DIV' ? '÷'
+                : ' '
+
+        const line = num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",") + ' ' + sign
+
+        text += "<br>" + line.padStart(20, ' ')
+
+        if (op === 'ADD') {
+          total = total.add(num)
+        } else if (op === 'SUB') {
+          total = total.subtract(num)
+        } else if (op === 'MUL') {
+          total = total.multiply(num)
+        } else if (op === 'DIV') {
+          total = total.divide(num)
+        } else {
+          total = total.add(num)
+        }
+      })
+
+
+      text += '<br>--------------------<br>'
+      totalString = total.done().toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",")
+      text += (totalString + ' =').padStart(20, ' ')
+
+      document.getElementById("tape").innerHTML = text
+      document.getElementById("current").innerHTML = totalString
+    }
+
+  </script>
+</body>
+
+</html>
