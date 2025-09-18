@@ -12,56 +12,216 @@
       font-family: monospace;
       white-space: pre;
     }
+
+    #current {
+      font-family: monospace;
+    }
+
+    #content {
+      display: grid;
+      gap: 16px;
+      grid-template-areas:
+        "current tape"
+        "functions tape"
+        "calculator tape"
+        "memory-actions memory";
+      place-content: center;
+    }
+
+    #current-area {
+      grid-area: current;
+      border: 1px solid black;
+      padding: 8px;
+      display: flex;
+      justify-content: end;
+    }
+
+    #tape-area {
+      grid-area: tape;
+      border: 1px solid black;
+      padding: 8px;
+      display: grid;
+      place-content: end;
+    }
+
+    #calculator-area {
+      grid-area: calculator;
+      display: grid;
+      gap: 8px;
+      grid-template:
+        "seven eight nine . divide" 25px
+        "four five six . multiply" 25px
+        "one two three . subtract" 25px
+        "zero double-zero decimal . add" 25px
+        "triple-zero triple-zero invert . equals" 25px
+      ;
+      grid-template-columns: repeat(3, 1fr) 8px 1fr;
+    }
+
+    #one {
+      grid-area: one;
+    }
+
+    #two {
+      grid-area: two;
+    }
+
+    #three {
+      grid-area: three;
+    }
+
+    #four {
+      grid-area: four;
+    }
+
+    #five {
+      grid-area: five;
+    }
+
+    #six {
+      grid-area: six;
+    }
+
+    #seven {
+      grid-area: seven;
+    }
+
+    #eight {
+      grid-area: eight;
+    }
+
+    #nine {
+      grid-area: nine;
+    }
+
+    #zero {
+      grid-area: zero;
+    }
+
+    #double-zero {
+      grid-area: double-zero;
+    }
+
+    #triple-zero {
+      grid-area: triple-zero;
+    }
+
+    #decimal {
+      grid-area: decimal;
+    }
+
+    #invert {
+      grid-area: invert;
+    }
+
+    #add {
+      grid-area: add;
+    }
+
+    #subtract {
+      grid-area: subtract;
+    }
+
+    #multiply {
+      grid-area: multiply;
+    }
+
+    #divide {
+      grid-area: divide;
+    }
+
+    #equals {
+      grid-area: equals;
+    }
+
+    #clear-actions-area {
+      grid-area: functions;
+      display: grid;
+      grid-auto-flow: column;
+      gap: 8px;
+      grid-template-columns: repeat(4, 1fr);
+    }
+
+    #copy-button {
+      position: absolute;
+    }
+
+    #memory-actions-area {
+      grid-area: memory-actions;
+      display: grid;
+      grid-auto-flow: column;
+      gap: 8px;
+      grid-template-columns: repeat(4, 1fr);
+    }
+
+    #memory-area {
+      grid-area: memory;
+      border: 1px solid black;
+      padding: 4px 8px;
+      display: flex;
+      justify-content: end;
+      font-family: monospace;
+    }
   </style>
 </head>
 
 <body>
+  <div id="content">
+    <div id="current-area">
+      <div id="current">0</div>
+    </div>
 
-  <button onclick="appendNumber(0)">0</button>
-  <button onclick="appendNumber(1)">1</button>
-  <button onclick="appendNumber(2)">2</button>
-  <button onclick="appendNumber(3)">3</button>
-  <button onclick="appendNumber(4)">4</button>
-  <button onclick="appendNumber(5)">5</button>
-  <button onclick="appendNumber(6)">6</button>
-  <button onclick="appendNumber(7)">7</button>
-  <button onclick="appendNumber(8)">8</button>
-  <button onclick="appendNumber(9)">9</button>
+    <div id="clear-actions-area">
+      <button onclick="backspace()">Back</button>
+      <button onclick="clearAll()">C</button>
+      <button onclick="clearTape()">CT</button>
+      <button onclick="clearEntry()">CE</button>
+    </div>
 
-  <br />
-  <br />
+    <div id="calculator-area">
+      <button id="zero" onclick="appendNumber(0)">0</button>
+      <button id="one" onclick="appendNumber(1)">1</button>
+      <button id="two" onclick="appendNumber(2)">2</button>
+      <button id="three" onclick="appendNumber(3)">3</button>
+      <button id="four" onclick="appendNumber(4)">4</button>
+      <button id="five" onclick="appendNumber(5)">5</button>
+      <button id="six" onclick="appendNumber(6)">6</button>
+      <button id="seven" onclick="appendNumber(7)">7</button>
+      <button id="eight" onclick="appendNumber(8)">8</button>
+      <button id="nine" onclick="appendNumber(9)">9</button>
 
-  <button onclick="doubleZero()">00</button>
-  <button onclick="tripleZero()">000</button>
-  <button onclick="decimal()">.</button>
-  <button onclick="invert()">+/-</button>
+      <button id="double-zero" onclick="doubleZero()">00</button>
+      <button id="triple-zero" onclick="tripleZero()">000</button>
+      <button id="decimal" onclick="decimal()">.</button>
+      <button id="invert" onclick="invert()">+/-</button>
 
-  <br />
-  <br />
+      <button id="add" onclick="appendOperation('ADD')">+</button>
+      <button id="subtract" onclick="appendOperation('SUB')">-</button>
+      <button id="multiply" onclick="appendOperation('MUL')">x</button>
+      <button id="divide" onclick="appendOperation('DIV')">÷</button>
 
-  <button onclick="appendOperation('ADD')">+</button>
-  <button onclick="appendOperation('SUB')">-</button>
-  <button onclick="appendOperation('MUL')">x</button>
-  <button onclick="appendOperation('DIV')">÷</button>
+      <button id="equals" onclick="equals()">=</button>
+    </div>
 
-  <br />
-  <br />
+    <div id="tape-area">
+      <div id="tape">
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+      </div>
+      <button id="copy-button" onclick="copyTape()">⧉</button>
+    </div>
 
-  <button onclick="demo()">=</button>
+    <div id="memory-actions-area">
+      <button onclick="memoryClear()">MC</button>
+      <button onclick="memoryRecall()">MR</button>
+      <button onclick="memoryStore()">MS</button>
+      <button onclick="memoryAdd()">M+</button>
+      <button onclick="memorySubtract()">M-</button>
+    </div>
 
-  <br />
-  <br />
-
-  <button onclick="backspace()">Back</button>
-  <button onclick="clear()">C</button>
-  <button onclick="clearTape()">CT</button>
-  <button onclick="clearEntry()">CE</button>
-
-  <br />
-  <br />
-
-  <div id="current">0</div>
-  <div id="tape"></div>
+    <div id="memory-area">
+      <div id="memory">MEM: 0</div>
+    </div>
+  </div>
 
   <script>
     math.config({
@@ -75,135 +235,219 @@
       MUL: 'MUL',
     }
 
-    let log = [{op: 'INIT', num: math.bignumber(0)}]
+    let log = []
 
     let currentNum = ''
     let currentOp = 'INIT'
+
+    let memory = math.bignumber(0)
+
+    const updateCurrent = () => {
+      const newValue = currentNum.length ? currentNum : '0'
+
+      document.getElementById("current").innerHTML = newValue.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
+    }
 
     const decimal = () => {
       if (currentNum.includes('.')) return
 
       currentNum += '.'
+      updateCurrent()
     }
+
     const invert = () => {
-      const [last, ...rest] = log
+      if (!currentNum.length) return // TODO:Error
 
-      let current = last.num ?? math.bignumber(0)
-      current = math.multiply(current, math.bignumber(-1))
-
-      log = [{op: last.op, num: current}, ...rest]
-
-      document.getElementById("current").innerHTML = current.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",")
+      currentNum = currentNum[0] === '-' ? currentNum.substring(1) : `-${currentNum}`
+      updateCurrent()
     }
     const doubleZero = () => {
-      const [last, ...rest] = log
+      if (!currentNum.length || currentNum === '0') return
 
-      let current = last.num ?? math.bignumber(0)
-      current = math.multiply(current, math.bignumber(100))
+      currentNum = currentNum + '00'
 
-      log = [{op: last.op, num: current}, ...rest]
-
-      document.getElementById("current").innerHTML = current.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",")
+      updateCurrent()
     }
     const tripleZero = () => {
-      const [last, ...rest] = log
+      if (!currentNum.length || currentNum === '0') return
 
-      let current = last.num ?? math.bignumber(0)
-      current = math.multiply(current, math.bignumber(1000))
+      currentNum = currentNum + '000'
 
-      log = [{op: last.op, num: current}, ...rest]
-
-      document.getElementById("current").innerHTML = current.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",")
+      updateCurrent()
     }
-    const clear = () => { }
     const backspace = () => {
-
+      currentNum = currentNum.substring(0, currentNum.length - 1)
+      updateCurrent()
     }
-    // Clear vs Clear Tape vs Clear Entry
-
 
     const appendNumber = (num) => {
-      const [last, ...rest] = log
+      if (!currentNum.length && num.toString() === '0') return
 
-      let current = last.num ?? math.bignumber(0)
-      const incremented = math.multiply(current, math.bignumber(10))
-      current = math.add(incremented, math.bignumber(num))
+      currentNum += num.toString()
+      updateCurrent()
+    }
 
-      log = [{op: last.op, num: current}, ...rest]
-
-      document.getElementById("current").innerHTML = current.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",")
+    const pushLog = () => {
+      if (log.length) {
+        // TODO: Need to handle trailing decimal?
+        log = [...log, {num: math.bignumber(currentNum), op: currentOp}]
+        print()
+      } else {
+        log = [{num: math.bignumber(currentNum), op: 'INIT'}]
+      }
     }
 
     const appendOperation = (op) => {
-      const [last, ...rest] = log
-
-      if (!last.num) {
-        log = [{op, num: null}, ...rest]
-      } else {
-
-        const newOp = {
-          op: op,
-          num: null
-        }
-
-        log = [newOp, last, ...rest]
-      }
-
-      document.getElementById("current").innerHTML = '0'
+      pushLog()
+      currentNum = ''
+      currentOp = op
     }
 
     const clearEntry = () => {
-      const [last, ...rest] = log
-
-      log = [{op: last.op, num: math.bignumber(0)}, ...rest]
-      document.getElementById("current").innerHTML = '0'
+      currentNum = ''
+      updateCurrent()
     }
 
     const clearTape = () => {
-      log = [{op: 'INIT', num: math.bignumber(0)}]
+      log = []
 
-      document.getElementById("current").innerHTML = '0'
-      document.getElementById("tape").innerHTML = "CLEARED"
+      document.getElementById("tape").innerHTML = "CLEARED".padStart(20, ' ')
     }
 
-    const demo = () => {
+    const clearAll = () => {
+      clearEntry()
+      clearTape()
+    }
+
+    const equals = () => {
+      pushLog()
+      print()
+    }
+
+    const print = () => {
       let text = ""
       let total = math.chain(math.bignumber(0))
 
-      let logx = [...log].reverse()
-      logx.forEach(({op, num}) => {
-        const sign = op === 'ADD' ? '+'
-          : op === 'SUB' ? '-'
-            : op === 'MUL' ? 'x'
-              : op === 'DIV' ? '÷'
-                : ' '
-
-        const line = num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",") + ' ' + sign
-
-        text += "<br>" + line.padStart(20, ' ')
+      log.forEach(({op, num}) => {
+        let sign = ' '
 
         if (op === 'ADD') {
           total = total.add(num)
+          sign = '+'
         } else if (op === 'SUB') {
           total = total.subtract(num)
+          sign = '-'
         } else if (op === 'MUL') {
           total = total.multiply(num)
+          sign = 'x'
         } else if (op === 'DIV') {
           total = total.divide(num)
+          sign = '÷'
         } else {
           total = total.add(num)
         }
+
+        const line = num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",") + ' ' + sign
+
+        text += "\n" + line.padStart(20, ' ')
       })
 
 
-      text += '<br>--------------------<br>'
+      text += '\n--------------------\n'
       totalString = total.done().toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",")
       text += (totalString + ' =').padStart(20, ' ')
 
-      document.getElementById("tape").innerHTML = text
+      document.getElementById("tape").innerHTML = text.substring(1)
       document.getElementById("current").innerHTML = totalString
     }
 
+    const copyTape = async () => {
+      const tape = document.getElementById("tape").innerHTML
+      try {
+        await navigator.clipboard.writeText(tape);
+        alert('Copied!')
+      } catch (err) {
+        console.error('Failed to copy text:', err);
+      }
+    }
+
+    const updateMemory = () => {
+      document.getElementById("memory").innerHTML = "MEM: " + memory.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",")
+    }
+
+    const memoryClear = () => {
+      memory = math.bignumber(0)
+      updateMemory()
+    }
+
+    const memoryAdd = () => {
+      const currentValue = currentNum ? math.bignumber(currentNum) : math.bignumber(0)
+      memory = math.add(memory, currentValue)
+      updateMemory()
+    }
+
+    const memorySubtract = () => {
+      const currentValue = currentNum ? math.bignumber(currentNum) : math.bignumber(0)
+      memory = math.subtract(memory, currentValue)
+      updateMemory()
+    }
+
+    const memoryStore = () => {
+      const currentValue = currentNum ? math.bignumber(currentNum) : math.bignumber(0)
+      memory = currentValue
+      updateMemory()
+    }
+
+    const memoryRecall = () => {
+      currentNum = memory.toString()
+      updateCurrent()
+    }
+
+    const handleKeyboardEvent = (key) => {
+      switch (key) {
+        case '1':
+        case '2':
+        case '3':
+        case '4':
+        case '5':
+        case '6':
+        case '7':
+        case '8':
+        case '9':
+        case '0':
+          appendNumber(key)
+          break
+        case "+":
+          appendOperation(OPERATION.ADD)
+          break
+        case "-":
+          appendOperation(OPERATION.SUB)
+          break
+        case "*":
+          appendOperation(OPERATION.MUL)
+          break
+        case "/":
+          appendOperation(OPERATION.DIV)
+          break
+        case "c":
+          clearAll()
+          break
+        case "=":
+        case "Enter":
+          equals()
+          break
+        case '.':
+          decimal()
+          break
+        case "Backspace":
+          backspace()
+          break
+      }
+    }
+
+    document.addEventListener('keydown', function (event) {
+      handleKeyboardEvent(event.key)
+    });
   </script>
 </body>
 
