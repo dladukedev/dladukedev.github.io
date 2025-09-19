@@ -233,175 +233,462 @@
       SUB: 'SUB',
       DIV: 'DIV',
       MUL: 'MUL',
+      INIT: 'INIT'
     }
 
-    let log = []
+    const createStore = (initialState, reducer = {}, subscribers = [], middleware = []) => {
+      let state = initialState
 
-    let currentNum = ''
-    let currentOp = 'INIT'
+      const getState = () => state
 
-    let memory = math.bignumber(0)
+      const dispatch = (action) => {
+        action = middleware.reduce((act, mw) => mw(act, state), action)
 
-    const updateCurrent = () => {
-      const newValue = currentNum.length ? currentNum : '0'
+        let prevState = state;
 
-      document.getElementById("current").innerHTML = newValue.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
-    }
+        if (action) {
+          state = reducer[action.type]?.(state, action) ?? state
+        }
 
-    const decimal = () => {
-      if (currentNum.includes('.')) return
+        subscribers.forEach(sub => sub(state, prevState))
+      }
 
-      currentNum += '.'
-      updateCurrent()
-    }
-
-    const invert = () => {
-      if (!currentNum.length) return // TODO:Error
-
-      currentNum = currentNum[0] === '-' ? currentNum.substring(1) : `-${currentNum}`
-      updateCurrent()
-    }
-    const doubleZero = () => {
-      if (!currentNum.length || currentNum === '0') return
-
-      currentNum = currentNum + '00'
-
-      updateCurrent()
-    }
-    const tripleZero = () => {
-      if (!currentNum.length || currentNum === '0') return
-
-      currentNum = currentNum + '000'
-
-      updateCurrent()
-    }
-    const backspace = () => {
-      currentNum = currentNum.substring(0, currentNum.length - 1)
-      updateCurrent()
-    }
-
-    const appendNumber = (num) => {
-      if (!currentNum.length && num.toString() === '0') return
-
-      currentNum += num.toString()
-      updateCurrent()
-    }
-
-    const pushLog = () => {
-      if (log.length) {
-        // TODO: Need to handle trailing decimal?
-        log = [...log, {num: math.bignumber(currentNum), op: currentOp}]
-        print()
-      } else {
-        log = [{num: math.bignumber(currentNum), op: 'INIT'}]
+      return {
+        dispatch,
+        getState,
       }
     }
 
-    const appendOperation = (op) => {
-      pushLog()
-      currentNum = ''
-      currentOp = op
+    // State
+    const initialState = {
+      lineSize: 30,
+      memory: math.bignumber(0),
+      log: [],
+      current: {
+        num: '',
+        op: OPERATION.INIT
+      },
     }
 
-    const clearEntry = () => {
-      currentNum = ''
-      updateCurrent()
+    // Selectors
+    const currentValueSelector = (state) => state.current.num
+    const currentOpSelector = (state) => state.current.op
+    const currentBigNumSelector = (state) => {
+      const currentNumValue = currentValueSelector(state)
+      return currentNumValue ? math.bignumber(currentNumValue) : math.bignumber(0)
     }
+    const currentValueEmptySelector = (state) => !state.current.num.length || state.current.num === '0'
+    const logSelector = (state) => state.log ?? []
+    const isLogClearedSelector = (state) => state.log === null
+    const memoryValueSelector = (state) => state.memory
+    const lineSizeSelector = (state) => state.lineSize
+    const tapeContentSelector = (state) => {
+      const lineSize = lineSizeSelector(state)
+      const log = logSelector(state)
 
-    const clearTape = () => {
-      log = []
+      if (!log.length) return "".padStart(lineSize, ' ')
 
-      document.getElementById("tape").innerHTML = "CLEARED".padStart(20, ' ')
-    }
-
-    const clearAll = () => {
-      clearEntry()
-      clearTape()
-    }
-
-    const equals = () => {
-      pushLog()
-      print()
-    }
-
-    const print = () => {
       let text = ""
       let total = math.chain(math.bignumber(0))
 
       log.forEach(({op, num}) => {
         let sign = ' '
 
-        if (op === 'ADD') {
-          total = total.add(num)
-          sign = '+'
-        } else if (op === 'SUB') {
-          total = total.subtract(num)
-          sign = '-'
-        } else if (op === 'MUL') {
-          total = total.multiply(num)
-          sign = 'x'
-        } else if (op === 'DIV') {
-          total = total.divide(num)
-          sign = '÷'
-        } else {
-          total = total.add(num)
+        switch (op) {
+          case OPERATION.ADD:
+            total = total.add(num)
+            sign = '+'
+            break
+
+          case OPERATION.SUB:
+            total = total.subtract(num)
+            sign = '-'
+            break
+
+          case OPERATION.MUL:
+            total = total.multiply(num)
+            sign = 'x'
+            break
+
+          case OPERATION.DIV:
+            total = total.divide(num)
+            sign = '÷'
+            break
+
+          case OPERATION.INIT:
+            total = total.add(num)
+            sign = ' '
+            break
+
+          default:
+            throw `ERROR! Unknown operation ${op}`
         }
 
-        const line = num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",") + ' ' + sign
+        const line = numberFormat(num) + ' ' + sign
 
-        text += "\n" + line.padStart(20, ' ')
+        text += "\n" + line.padStart(lineSize, ' ')
       })
 
+      text += '\n' + '-'.repeat(lineSize) + '\n'
+      totalString = numberFormat(total.done())
+      text += (totalString + ' =').padStart(lineSize, ' ')
 
-      text += '\n--------------------\n'
-      totalString = total.done().toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",")
-      text += (totalString + ' =').padStart(20, ' ')
-
-      document.getElementById("tape").innerHTML = text.substring(1)
-      document.getElementById("current").innerHTML = totalString
+      return text.substring(1)
     }
 
-    const copyTape = async () => {
-      const tape = document.getElementById("tape").innerHTML
-      try {
-        await navigator.clipboard.writeText(tape);
-        alert('Copied!')
-      } catch (err) {
-        console.error('Failed to copy text:', err);
+    // Reducers
+    const handleDecimal = (state, action) => {
+      const currentNum = currentValueSelector(state)
+
+      if (currentNum.includes('.')) {
+        return state
+      }
+
+      return {
+        ...state,
+        current: {
+          ...state.current,
+          num: currentNum + '.'
+        }
       }
     }
 
-    const updateMemory = () => {
-      document.getElementById("memory").innerHTML = "MEM: " + memory.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",")
+    const handleInvert = (state, action) => {
+      const currentNum = currentValueSelector(state)
+
+      if (!currentNum.length) return state
+
+      const newCurrentNum = currentNum[0] === '-' ? currentNum.substring(1) : `-${currentNum}`
+
+      return {
+        ...state,
+        current: {
+          ...state.current,
+          num: newCurrentNum
+        }
+      }
     }
 
-    const memoryClear = () => {
-      memory = math.bignumber(0)
-      updateMemory()
+    const handleAppendNumber = (state, {payload: {num}}) => {
+      const isEmpty = currentValueEmptySelector(state)
+      const isAppendingZero = num.toString() === '0'
+
+      if (isEmpty && isAppendingZero) {
+        return state
+      }
+
+      const currentNum = currentValueSelector(state)
+
+      return {
+        ...state,
+        current: {
+          ...state.current,
+          num: currentNum + num.toString()
+        }
+      }
     }
 
-    const memoryAdd = () => {
-      const currentValue = currentNum ? math.bignumber(currentNum) : math.bignumber(0)
-      memory = math.add(memory, currentValue)
-      updateMemory()
+    const handleDoubleZero = (state, action) => {
+      const isEmpty = currentValueEmptySelector(state)
+      if (isEmpty) {
+        return state
+      }
+
+      const currentNum = currentValueSelector(state)
+
+      return {
+        ...state,
+        current: {
+          ...state.current,
+          num: currentNum + '00'
+        }
+      }
     }
 
-    const memorySubtract = () => {
-      const currentValue = currentNum ? math.bignumber(currentNum) : math.bignumber(0)
-      memory = math.subtract(memory, currentValue)
-      updateMemory()
+    const handleTripleZero = (state, action) => {
+      const isEmpty = currentValueEmptySelector(state)
+      if (isEmpty) {
+        return state
+      }
+
+      const currentNum = currentValueSelector(state)
+
+      return {
+        ...state,
+        current: {
+          ...state.current,
+          num: currentNum + '000'
+        }
+      }
     }
 
-    const memoryStore = () => {
-      const currentValue = currentNum ? math.bignumber(currentNum) : math.bignumber(0)
-      memory = currentValue
-      updateMemory()
+    const handleAppendOperation = (state, {payload: {op}}) => {
+      const log = logSelector(state)
+      const currentNum = currentBigNumSelector(state)
+      const currentOp = currentOpSelector(state)
+
+      const newLog = log.length
+        ? [...log, {num: currentNum, op: currentOp}]
+        : [{num: currentNum, op: OPERATION.INIT}]
+
+      return {
+        ...state,
+        log: newLog,
+        current: {
+          num: '',
+          op: op
+        }
+      }
     }
 
-    const memoryRecall = () => {
-      currentNum = memory.toString()
-      updateCurrent()
+    const handleEquals = (state, action) => {
+      const log = logSelector(state)
+      const currentNum = currentBigNumSelector(state)
+      const currentOp = currentOpSelector(state)
+
+      const newLog = log.length
+        ? [...log, {num: math.bignumber(currentNum), op: currentOp}]
+        : [{num: math.bignumber(currentNum), op: OPERATION.INIT}]
+
+      return {
+        ...state,
+        log: newLog,
+      }
     }
+
+    const handleBackspace = (state, action) => {
+      const currentNum = currentValueSelector(state)
+
+      return {
+        ...state,
+        current: {
+          ...state.current,
+          num: currentNum.substring(0, currentNum.length - 1)
+        }
+      }
+    }
+
+    const handleClearEntry = (state, action) => {
+      return {
+        ...state,
+        current: {
+          num: '',
+          op: OPERATION.INIT
+        }
+      }
+    }
+
+    const handleClearTape = (state, action) => {
+      return {
+        ...state,
+        log: null,
+      }
+    }
+
+    const handleClearAll = (state, action) => {
+      return {
+        ...state,
+        log: null,
+        current: {
+          num: '',
+          op: OPERATION.INIT
+        }
+      }
+    }
+
+    const handleMemoryClear = (state, action) => {
+      return {
+        ...state,
+        memory: math.bignumber(0)
+      }
+    }
+
+    const handleMemoryAdd = (state, action) => {
+      const currentNum = currentBigNumSelector(state)
+      const memory = memoryValueSelector(state)
+
+      return {
+        ...state,
+        memory: math.add(memory, currentNum)
+      }
+    }
+
+    const handleMemorySubtract = (state, action) => {
+      const currentNum = currentBigNumSelector(state)
+      const memory = memoryValueSelector(state)
+
+      return {
+        ...state,
+        memory: math.subtract(memory, currentNum)
+      }
+    }
+
+    const handleMemoryStore = (state, action) => {
+      const currentNum = currentBigNumSelector(state)
+
+      return {
+        ...state,
+        memory: currentNum
+      }
+    }
+
+    const handleMemoryRecall = (state, action) => {
+      const memory = memoryValueSelector(state)
+
+      return {
+        ...state,
+        current: {
+          ...state.current,
+          num: memory.toString()
+        }
+      }
+    }
+
+    const reducer = {
+      decimal: handleDecimal,
+      invert: handleInvert,
+      appendNumber: handleAppendNumber,
+      doubleZero: handleDoubleZero,
+      tripleZero: handleTripleZero,
+      appendOperation: handleAppendOperation,
+      equals: handleEquals,
+      backspace: handleBackspace,
+      clearEntry: handleClearEntry,
+      clearTape: handleClearTape,
+      clearAll: handleClearAll,
+      memoryClear: handleMemoryClear,
+      memoryAdd: handleMemoryAdd,
+      memorySubtract: handleMemorySubtract,
+      memoryStore: handleMemoryStore,
+      memoryRecall: handleMemoryRecall
+    }
+
+    // Actions
+    const appendNumberAction = (num) => ({type: "appendNumber", payload: {num}})
+    const appendOperationAction = (op) => ({type: "appendOperation", payload: {op}})
+
+    const decimalAction = () => ({type: "decimal"})
+    const invertAction = () => ({type: "invert"})
+    const doubleZeroAction = () => ({type: "doubleZero"})
+    const tripleZeroAction = () => ({type: "tripleZero"})
+    const equalsAction = () => ({type: "equals"})
+
+    const backspaceAction = () => ({type: "backspace"})
+    const clearEntryAction = () => ({type: "clearEntry"})
+    const clearTapeAction = () => ({type: "clearTape"})
+    const clearAllAction = () => ({type: "clearAll"})
+
+    const memoryClearAction = () => ({type: "memoryClear"})
+    const memoryAddAction = () => ({type: "memoryAdd"})
+    const memorySubtractAction = () => ({type: "memorySubtract"})
+    const memoryStoreAction = () => ({type: "memoryStore"})
+    const memoryRecallAction = () => ({type: "memoryRecall"})
+
+    const copyTapeAction = () => ({type: "copyTape"})
+
+    // Subscribers
+    const numberFormat = (num) => {
+      return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",")
+    }
+
+    const renderCurrent = (state) => {
+      const current = document.getElementById("current")
+      const currentValue = currentValueSelector(state) || '0'
+      current.innerHTML = numberFormat(currentValue)
+    }
+
+    const renderTape = (state, prevState) => {
+      const tape = document.getElementById("tape")
+      const lineSize = lineSizeSelector(state)
+
+      const log = logSelector(state)
+
+      const wasCleared = isLogClearedSelector(state)
+      if (wasCleared) {
+        tape.innerHTML = "CLEARED".padStart(lineSize, ' ')
+        return
+      }
+
+      const tapeContent = tapeContentSelector(state)
+
+      tape.innerHTML = tapeContent
+    }
+
+    const renderMemory = (state) => {
+      const memory = document.getElementById("memory")
+      const memoryValue = memoryValueSelector(state)
+      memory.innerHTML = "MEM: " + numberFormat(memoryValue)
+    }
+
+    const copyTapeMiddleware = (action, state) => {
+      if (action.type === "copyTape") {
+        const tape = tapeContentSelector(state)
+        navigator.clipboard.writeText(tape)
+          .then(() => alert('Copied!'))
+          .catch((err) => console.error('Failed to copy text:', err))
+
+        return null
+      }
+
+      return action
+    }
+
+    const subscribers = [renderCurrent, renderTape, renderMemory]
+    const middleware = [copyTapeMiddleware]
+
+    const store = createStore(initialState, reducer, subscribers, middleware)
+
+    const increment = () => {store.dispatch(incrementAction())}
+
+    renderCurrent(store.getState(), store.getState())
+    renderMemory(store.getState(), store.getState())
+    renderTape(store.getState(), store.getState())
+
+    // Tests
+    const test = () => {
+      const testState = {counter: 0, actions: 0}
+
+      const assert = (func, expected, actual) => {
+        if (actual === expected) {
+          console.log(`${func}: Success!!`)
+        } else {
+          console.error(`${func}: ${actual} !== ${expected}`)
+        }
+      }
+
+      const increment_increases_count = () => {
+        // Given
+        const underTest = createStore(testState, reducer)
+        const expected = 1
+
+        // When
+        underTest.dispatch(incrementAction())
+        const actual = countSelector(underTest.getState())
+
+        // Then
+        assert(increment_increases_count.name, expected, actual)
+      }
+
+      increment_increases_count()
+    }
+
+    const backspace = () => store.dispatch(backspaceAction())
+    const clearAll = () => store.dispatch(clearAllAction())
+    const clearTape = () => store.dispatch(clearTapeAction())
+    const clearEntry = () => store.dispatch(clearEntryAction())
+    const appendNumber = (num) => store.dispatch(appendNumberAction(num))
+    const doubleZero = () => store.dispatch(doubleZeroAction())
+    const tripleZero = () => store.dispatch(tripleZeroAction())
+    const decimal = () => store.dispatch(decimalAction())
+    const invert = () => store.dispatch(invertAction())
+    const appendOperation = (op) => store.dispatch(appendOperationAction(op))
+    const equals = () => store.dispatch(equalsAction())
+    const copyTape = () => store.dispatch(copyTapeAction())
+    const memoryClear = () => store.dispatch(memoryClearAction())
+    const memoryRecall = () => store.dispatch(memoryRecallAction())
+    const memoryStore = () => store.dispatch(memoryStoreAction())
+    const memoryAdd = () => store.dispatch(memoryAddAction())
+    const memorySubtract = () => store.dispatch(memorySubtractAction())
 
     const handleKeyboardEvent = (key) => {
       switch (key) {
@@ -415,32 +702,32 @@
         case '8':
         case '9':
         case '0':
-          appendNumber(key)
+          store.dispatch(appendNumberAction(key))
           break
         case "+":
-          appendOperation(OPERATION.ADD)
+          store.dispatch(appendOperationAction(OPERATION.ADD))
           break
         case "-":
-          appendOperation(OPERATION.SUB)
+          store.dispatch(appendOperationAction(OPERATION.SUB))
           break
         case "*":
-          appendOperation(OPERATION.MUL)
+          store.dispatch(appendOperationAction(OPERATION.MUL))
           break
         case "/":
-          appendOperation(OPERATION.DIV)
+          store.dispatch(appendOperationAction(OPERATION.DIV))
           break
         case "c":
-          clearAll()
+          store.dispatch(clearAllAction())
           break
         case "=":
         case "Enter":
-          equals()
+          store.dispatch(equalsAction())
           break
         case '.':
-          decimal()
+          store.dispatch(decimalAction())
           break
         case "Backspace":
-          backspace()
+          store.dispatch(backspaceAction())
           break
       }
     }
