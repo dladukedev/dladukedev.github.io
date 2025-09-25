@@ -28,16 +28,22 @@
 
     .button {
       background-color: var(--color-container);
-      border: none;
+      border: 1px solid var(--color-container);
       padding: 8px 16px;
+    }
+
+    .button:hover {
+      border: 1px solid var(--color-content-secondary);
     }
 
     .highlight-button {
       background-color: var(--color-container-highlight);
+      border-color: var(--color-container-highlight);
     }
 
     .pop-button {
       background-color: var(--color-pop);
+      border-color: var(--color-pop);
     }
 
     .large-text-button {
@@ -206,7 +212,6 @@
       padding: 8px 11px;
       min-height: 32px;
       width: calc(2ch + 20px);
-      border: none;
       border-radius: 18px;
       white-space: nowrap;
       overflow: hidden;
@@ -285,7 +290,7 @@
         <div id="tape">
           &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
         </div>
-        <button id="copy-button" onclick="copyTape()">⧉</button>
+        <button class="button" id="copy-button" onclick="copyTape()">⧉</button>
       </div>
     </div>
 
@@ -583,6 +588,9 @@
         newLog = log.length
           ? [...log, {num: currentNum, op: currentOp}]
           : [{num: currentNum, op: OPERATION.INIT}]
+      } else if (!newLog.length) {
+        const currentNum = currentBigNumSelector(state)
+        newLog = [{num: currentNum, op: OPERATION.INIT}]
       }
 
       const intermediateState = {
