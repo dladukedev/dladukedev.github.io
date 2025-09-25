@@ -8,6 +8,10 @@
   <script type="text/javascript" src="./math.js"></script>
 
   <style>
+    body {
+      margin: 32px;
+    }
+
     #tape {
       font-family: monospace;
       white-space: pre;
@@ -26,6 +30,18 @@
         "calculator tape"
         "memory-actions memory";
       place-content: center;
+    }
+
+    @media(max-width: 520px) {
+      #content {
+        grid-template-areas:
+          "tape"
+          "current"
+          "functions"
+          "calculator"
+          "memory-actions"
+          "memory";
+      }
     }
 
     #current-area {
