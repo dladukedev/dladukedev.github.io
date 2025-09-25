@@ -263,13 +263,19 @@
       EQUALS: 'EQUALS',
     }
 
+    const COPY_TAPE_RESULT = {
+      SUCCESS: 'SUCCESS',
+      ERROR: 'ERROR',
+      NONE: 'NONE'
+    }
+
     const createStore = (initialState, reducer = {}, subscribers = [], middleware = []) => {
       let state = initialState
 
       const getState = () => state
 
       const dispatch = (action) => {
-        action = middleware.reduce((act, mw) => mw(act, state), action)
+        action = middleware.reduce((act, mw) => mw(act, state, dispatch), action)
 
         let prevState = state;
 
@@ -295,32 +301,8 @@
         num: '',
         op: OPERATION.INIT
       },
+      copyTapeResult: COPY_TAPE_RESULT.NONE
     }
-
-    /*
-                          36  
-                           6 x
-                           3 +
-                           8 x
------------------------------- 
-                       1,752 = (put this into the entry, but non editable?)
-                           6 +
-                           7 -
-------------------------------
-                       1,751 =
-                       
-==============================
-
-                           6
-                           5 +
-------------------------------
-                          11 =
-                          
-                          
-                          
-                          hit + x2, add num 2x
-                          for plus and minus, if you hit either key x2, start adding and subtracting last value
-    */
 
     // Selectors
     const currentValueSelector = (state) => state.current.num
@@ -329,7 +311,7 @@
       const currentNumValue = currentValueSelector(state)
       return currentNumValue ? math.bignumber(currentNumValue) : math.bignumber(0)
     }
-    const currentValueEmptySelector = (state) => !state.current.num.length || state.current.num === '0'
+    const currentValueEmptySelector = (state) => !state.current.num.length
     const runningTotalSelector = (state) => {
       const log = logSelector(state)
 
@@ -441,54 +423,64 @@
     }
 
     const handleAppendNumber = (state, {payload: {num}}) => {
-      const isEmpty = currentValueEmptySelector(state)
-      const isAppendingZero = num.toString() === '0'
-
-      if (isEmpty && isAppendingZero) {
-        return state
-      }
-
       const currentNum = currentValueSelector(state)
+      const isAppendingZero = num.toString() === '0'
+      const isCurrentNumZero = currentNum.toString() === '0'
+
+      let newNum = currentNum + num.toString()
+      if (isCurrentNumZero && isAppendingZero) {
+        newNum = currentNum
+      } else if (currentNum === '' && isAppendingZero) {
+        newNum = '0'
+      } else if (isCurrentNumZero && !isAppendingZero) {
+        newNum = num.toString()
+      }
 
       return {
         ...state,
         current: {
           ...state.current,
-          num: currentNum + num.toString()
+          num: newNum
         }
       }
     }
 
     const handleDoubleZero = (state, action) => {
-      const isEmpty = currentValueEmptySelector(state)
-      if (isEmpty) {
-        return state
-      }
-
       const currentNum = currentValueSelector(state)
+      const isCurrentNumZero = currentNum.toString() === '0'
+
+      let newNum = currentNum + '00'
+      if (isCurrentNumZero) {
+        newNum = currentNum
+      } else if (currentNum === '') {
+        newNum = '0'
+      }
 
       return {
         ...state,
         current: {
           ...state.current,
-          num: currentNum + '00'
+          num: newNum
         }
       }
     }
 
     const handleTripleZero = (state, action) => {
-      const isEmpty = currentValueEmptySelector(state)
-      if (isEmpty) {
-        return state
-      }
-
       const currentNum = currentValueSelector(state)
+      const isCurrentNumZero = currentNum.toString() === '0'
+
+      let newNum = currentNum + '000'
+      if (isCurrentNumZero) {
+        newNum = currentNum
+      } else if (currentNum === '') {
+        newNum = '0'
+      }
 
       return {
         ...state,
         current: {
           ...state.current,
-          num: currentNum + '000'
+          num: newNum
         }
       }
     }
@@ -574,16 +566,22 @@
       return {
         ...state,
         current: {
-          num: '',
-          op: OPERATION.INIT
+          ...state.current,
+          num: '0',
         }
       }
     }
 
     const handleClearTape = (state, action) => {
+      const current = currentDisplayValueSelector(state)
+
       return {
         ...state,
         log: null,
+        current: {
+          num: current,
+          op: OPERATION.INIT
+        }
       }
     }
 
@@ -646,6 +644,34 @@
       }
     }
 
+    const handleCopyTape = (state, action) => {
+      return {
+        ...state,
+        copyTapeResult: COPY_TAPE_RESULT.NONE
+      }
+    }
+
+    const handleCopyTapeSuccess = (state, action) => {
+      return {
+        ...state,
+        copyTapeResult: COPY_TAPE_RESULT.SUCCESS
+      }
+    }
+
+    const handleCopyTapeError = (state, action) => {
+      return {
+        ...state,
+        copyTapeResult: COPY_TAPE_RESULT.ERROR
+      }
+    }
+
+    const handleCopyTapeClear = (state, action) => {
+      return {
+        ...state,
+        copyTapeResult: COPY_TAPE_RESULT.NONE
+      }
+    }
+
     const reducer = {
       decimal: handleDecimal,
       invert: handleInvert,
@@ -662,7 +688,11 @@
       memoryAdd: handleMemoryAdd,
       memorySubtract: handleMemorySubtract,
       memoryStore: handleMemoryStore,
-      memoryRecall: handleMemoryRecall
+      memoryRecall: handleMemoryRecall,
+      copyTape: handleCopyTape,
+      copyTapeSuccess: handleCopyTapeSuccess,
+      copyTapeError: handleCopyTapeError,
+      copyTapeClear: handleCopyTapeClear,
     }
 
     // Actions
@@ -687,6 +717,9 @@
     const memoryRecallAction = () => ({type: "memoryRecall"})
 
     const copyTapeAction = () => ({type: "copyTape"})
+    const copyTapeSuccessAction = () => ({type: "copyTapeSuccess"})
+    const copyTapeErrorAction = () => ({type: "copyTapeError"})
+    const copyTapeClearAction = () => ({type: "copyTapeClear"})
 
     // Subscribers
     const numberFormat = (num) => {
@@ -710,6 +743,7 @@
     const renderTape = (state, prevState) => {
       const tapeArea = document.getElementById("tape-area")
       const tape = document.getElementById("tape")
+      const copyButton = document.getElementById("copy-button")
       const lineSize = lineSizeSelector(state)
 
       const log = logSelector(state)
@@ -728,6 +762,14 @@
       if (log !== prevLog) {
         tapeArea.scrollTo(0, tapeArea.scrollHeight)
       }
+
+      if (state.copyTapeResult === COPY_TAPE_RESULT.SUCCESS) {
+        copyButton.innerHTML = '⧉ - Copied!'
+      } else if (state.copyTapeResult === COPY_TAPE_RESULT.ERROR) {
+        copyButton.innerHTML = '⧉ - Failed!'
+      } else {
+        copyButton.innerHTML = '⧉'
+      }
     }
 
     const renderMemory = (state) => {
@@ -736,14 +778,26 @@
       memory.innerHTML = "MEM: " + numberFormat(memoryValue)
     }
 
-    const copyTapeMiddleware = (action, state) => {
+    let copyTimeout = null
+    const copyTapeMiddleware = (action, state, dispatch) => {
       if (action.type === "copyTape") {
-        const tape = tapeContentSelector(state)
-        navigator.clipboard.writeText(tape)
-          .then(() => alert('Copied!'))
-          .catch((err) => console.error('Failed to copy text:', err))
+        clearTimeout(copyTimeout)
+        copyTimeout = null
 
-        return null
+        const tape = tapeContentSelector(state)
+
+        navigator.clipboard.writeText(tape)
+          .then(() => dispatch(copyTapeSuccessAction()))
+          .catch((err) => {
+            console.error('Failed to copy text:', err)
+            dispatch(copyTapeErrorAction())
+          })
+      } else if (action.type === "copyTapeSuccess" || action.type === 'copyTapeError') {
+        clearTimeout(copyTimeout)
+        copyTimeout = setTimeout(() => dispatch(copyTapeClearAction()), 3000)
+      } else if (action.type === "copyTapeClear") {
+        clearTimeout(copyTimeout)
+        copyTimeout = null
       }
 
       return action
