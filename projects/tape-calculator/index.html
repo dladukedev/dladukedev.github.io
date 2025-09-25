@@ -928,7 +928,7 @@
     const memoryAdd = () => store.dispatch(memoryAddAction())
     const memorySubtract = () => store.dispatch(memorySubtractAction())
 
-    const handleKeyboardEvent = (key, event) => {
+    const handleKeyboardEvent = ({key, ctrlKey}) => {
       switch (key) {
         case '1':
         case '2':
@@ -960,8 +960,10 @@
           event.preventDefault()
           break
         case "c":
-          store.dispatch(clearAllAction())
-          event.preventDefault()
+          if (ctrlKey) {
+            store.dispatch(copyTapeAction())
+            event.preventDefault()
+          }
           break
         case "=":
         case "Enter":
@@ -980,7 +982,7 @@
     }
 
     document.addEventListener('keydown', function (event) {
-      handleKeyboardEvent(event.key)
+      handleKeyboardEvent(event)
     });
   </script>
 </body>
