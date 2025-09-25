@@ -325,7 +325,7 @@
                 : op === OPERATION.INIT ? math.chain(num)
                   : op === OPERATION.EQUALS ? math.chain(num)
                     : math.chain(0)
-      }, math.chain(math.bignumber(0)))
+      }, math.chain(math.bignumber(0))).done()
     }
     const currentDisplayValueSelector = (state) => {
       const currentValue = currentValueSelector(state)
@@ -530,7 +530,7 @@
 
       const total = runningTotalSelector(intermediateState)
 
-      newLog = [...newLog, {num: total.done(), op: OPERATION.EQUALS}]
+      newLog = [...newLog, {num: total, op: OPERATION.EQUALS}]
 
       return {
         ...state,
@@ -590,7 +590,7 @@
     }
 
     const handleMemoryAdd = (state, action) => {
-      const currentNum = currentDisplayValueSelector(state)
+      const currentNum = currentDisplayBigNumberSelector(state)
       const memory = memoryValueSelector(state)
 
       return {
@@ -600,7 +600,7 @@
     }
 
     const handleMemorySubtract = (state, action) => {
-      const currentNum = currentDisplayValueSelector(state)
+      const currentNum = currentDisplayBigNumberSelector(state)
       const memory = memoryValueSelector(state)
 
       return {
@@ -610,7 +610,7 @@
     }
 
     const handleMemoryStore = (state, action) => {
-      const currentNum = currentDisplayValueSelector(state)
+      const currentNum = currentDisplayBigNumberSelector(state)
 
       return {
         ...state,
