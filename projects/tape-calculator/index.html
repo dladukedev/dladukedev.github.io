@@ -859,7 +859,7 @@
     const memoryAdd = () => store.dispatch(memoryAddAction())
     const memorySubtract = () => store.dispatch(memorySubtractAction())
 
-    const handleKeyboardEvent = (key) => {
+    const handleKeyboardEvent = (key, event) => {
       switch (key) {
         case '1':
         case '2':
@@ -872,38 +872,46 @@
         case '9':
         case '0':
           store.dispatch(appendNumberAction(key))
+          event.preventDefault()
           break
         case "+":
           store.dispatch(appendOperationAction(OPERATION.ADD))
+          event.preventDefault()
           break
         case "-":
           store.dispatch(appendOperationAction(OPERATION.SUB))
+          event.preventDefault()
           break
         case "*":
           store.dispatch(appendOperationAction(OPERATION.MUL))
+          event.preventDefault()
           break
         case "/":
           store.dispatch(appendOperationAction(OPERATION.DIV))
+          event.preventDefault()
           break
         case "c":
           store.dispatch(clearAllAction())
+          event.preventDefault()
           break
         case "=":
         case "Enter":
           store.dispatch(equalsAction())
+          event.preventDefault()
           break
         case '.':
           store.dispatch(decimalAction())
+          event.preventDefault()
           break
         case "Backspace":
           store.dispatch(backspaceAction())
+          event.preventDefault()
           break
       }
     }
 
     document.addEventListener('keydown', function (event) {
       handleKeyboardEvent(event.key)
-      event.preventDefault()
     });
   </script>
 </body>
