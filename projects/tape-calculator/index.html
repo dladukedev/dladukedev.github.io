@@ -8,8 +8,40 @@
   <script type="text/javascript" src="./math.js"></script>
 
   <style>
+    :root {
+      color-scheme: light dark;
+      --color-background: light-dark(#FFFFFF, #000000);
+      --color-highlight: light-dark(#F3F3F3, #121212);
+      --color-container: light-dark(#EFEFEF, #222222);
+      --color-container-highlight: light-dark(#D9D9D9, #333333);
+      --color-pop: light-dark(#93C47D, #284E13);
+      --color-content: light-dark(#1F1F1F, #FFFFFF);
+      --color-content-secondary: light-dark(#333333, #CCCCCC);
+      --color-error: light-dark(#EA9999, #660000);
+    }
+
     body {
       margin: 32px;
+      background-color: var(--color-background);
+      color: var(--color-content);
+    }
+
+    .button {
+      background-color: var(--color-container);
+      border: none;
+      padding: 8px 16px;
+    }
+
+    .highlight-button {
+      background-color: var(--color-container-highlight);
+    }
+
+    .pop-button {
+      background-color: var(--color-pop);
+    }
+
+    .large-text-button {
+      font-size: 1rem;
     }
 
     #tape {
@@ -32,7 +64,7 @@
       place-content: center;
     }
 
-    @media(max-width: 520px) {
+    @media(max-width: 640px) {
       #content {
         grid-template-areas:
           "tape"
@@ -42,22 +74,27 @@
           "memory-actions"
           "memory";
       }
+
+      #tape-area {
+        height: 200px !important;
+      }
     }
 
     #current-area {
       grid-area: current;
-      border: 1px solid black;
+      border: 1px solid var(--color-container-highlight);
       padding: 8px;
       display: flex;
       justify-content: end;
+      align-items: center;
     }
 
     #tape-area {
       grid-area: tape;
-      border: 1px solid black;
+      border: 1px solid var(--color-container-highlight);
       padding: 8px;
       display: grid;
-      height: 225px;
+      height: 310px;
       overflow-y: scroll;
     }
 
@@ -69,13 +106,13 @@
     #calculator-area {
       grid-area: calculator;
       display: grid;
-      gap: 8px;
+      gap: 4px;
       grid-template:
-        "seven eight nine . divide" 25px
-        "four five six . multiply" 25px
-        "one two three . subtract" 25px
-        "zero double-zero decimal . add" 25px
-        "triple-zero triple-zero invert . equals" 25px
+        "seven eight nine . divide" 40px
+        "four five six . multiply" 40px
+        "one two three . subtract" 40px
+        "zero double-zero decimal . add" 40px
+        "triple-zero triple-zero invert . equals" 40px
       ;
       grid-template-columns: repeat(3, 1fr) 8px 1fr;
     }
@@ -160,28 +197,45 @@
       grid-area: functions;
       display: grid;
       grid-auto-flow: column;
-      gap: 8px;
+      gap: 4px;
       grid-template-columns: repeat(4, 1fr);
     }
 
     #copy-button {
       position: absolute;
+      padding: 8px 11px;
+      min-height: 32px;
+      width: calc(2ch + 20px);
+      border: none;
+      border-radius: 18px;
+      white-space: nowrap;
+      overflow: hidden;
+      display: grid;
+      place-content: start;
+      font-size: 1rem;
+    }
+
+    .copy-button-notification {
+      width: calc(10ch + 20px) !important;
+      transition: width .3s ease-out;
     }
 
     #memory-actions-area {
       grid-area: memory-actions;
       display: grid;
       grid-auto-flow: column;
-      gap: 8px;
+      gap: 4px;
       grid-template-columns: repeat(4, 1fr);
     }
 
     #memory-area {
       grid-area: memory;
-      border: 1px solid black;
+      border: 1px solid var(--color-container-highlight);
+      color: var(--color-content-secondary);
       padding: 4px 8px;
       display: flex;
       justify-content: end;
+      align-items: center;
       font-family: monospace;
     }
   </style>
@@ -194,35 +248,36 @@
     </div>
 
     <div id="clear-actions-area">
-      <button onclick="backspace()">Back</button>
-      <button onclick="clearAll()">C</button>
-      <button onclick="clearTape()">CT</button>
-      <button onclick="clearEntry()">CE</button>
+      <button class="button" onclick="backspace()">Back</button>
+      <button class="button" onclick="clearAll()">C</button>
+      <button class="button" onclick="clearTape()">CT</button>
+      <button class="button" onclick="clearEntry()">CE</button>
     </div>
 
     <div id="calculator-area">
-      <button id="zero" onclick="appendNumber(0)">0</button>
-      <button id="one" onclick="appendNumber(1)">1</button>
-      <button id="two" onclick="appendNumber(2)">2</button>
-      <button id="three" onclick="appendNumber(3)">3</button>
-      <button id="four" onclick="appendNumber(4)">4</button>
-      <button id="five" onclick="appendNumber(5)">5</button>
-      <button id="six" onclick="appendNumber(6)">6</button>
-      <button id="seven" onclick="appendNumber(7)">7</button>
-      <button id="eight" onclick="appendNumber(8)">8</button>
-      <button id="nine" onclick="appendNumber(9)">9</button>
+      <button class="button highlight-button large-text-button" id="zero" onclick="appendNumber(0)">0</button>
+      <button class="button highlight-button large-text-button" id="one" onclick="appendNumber(1)">1</button>
+      <button class="button highlight-button large-text-button" id="two" onclick="appendNumber(2)">2</button>
+      <button class="button highlight-button large-text-button" class="button" id="three"
+        onclick="appendNumber(3)">3</button>
+      <button class="button highlight-button large-text-button" id="four" onclick="appendNumber(4)">4</button>
+      <button class="button highlight-button large-text-button" id="five" onclick="appendNumber(5)">5</button>
+      <button class="button highlight-button large-text-button" id="six" onclick="appendNumber(6)">6</button>
+      <button class="button highlight-button large-text-button" id="seven" onclick="appendNumber(7)">7</button>
+      <button class="button highlight-button large-text-button" id="eight" onclick="appendNumber(8)">8</button>
+      <button class="button highlight-button large-text-button" id="nine" onclick="appendNumber(9)">9</button>
 
-      <button id="double-zero" onclick="doubleZero()">00</button>
-      <button id="triple-zero" onclick="tripleZero()">000</button>
-      <button id="decimal" onclick="decimal()">.</button>
-      <button id="invert" onclick="invert()">+/-</button>
+      <button class="button highlight-button large-text-button" id="double-zero" onclick="doubleZero()">00</button>
+      <button class="button highlight-button large-text-button" id="triple-zero" onclick="tripleZero()">000</button>
+      <button class="button large-text-button" id="decimal" onclick="decimal()">.</button>
+      <button class="button large-text-button" id="invert" onclick="invert()">+/-</button>
 
-      <button id="add" onclick="appendOperation('ADD')">+</button>
-      <button id="subtract" onclick="appendOperation('SUB')">-</button>
-      <button id="multiply" onclick="appendOperation('MUL')">x</button>
-      <button id="divide" onclick="appendOperation('DIV')">÷</button>
+      <button class="button large-text-button" id="add" onclick="appendOperation('ADD')">+</button>
+      <button class="button large-text-button" id="subtract" onclick="appendOperation('SUB')">-</button>
+      <button class="button large-text-button" id="multiply" onclick="appendOperation('MUL')">x</button>
+      <button class="button large-text-button" id="divide" onclick="appendOperation('DIV')">÷</button>
 
-      <button id="equals" onclick="equals()">=</button>
+      <button class="button pop-button large-text-button" id="equals" onclick="equals()">=</button>
     </div>
 
     <div id="tape-area">
@@ -235,11 +290,11 @@
     </div>
 
     <div id="memory-actions-area">
-      <button onclick="memoryClear()">MC</button>
-      <button onclick="memoryRecall()">MR</button>
-      <button onclick="memoryStore()">MS</button>
-      <button onclick="memoryAdd()">M+</button>
-      <button onclick="memorySubtract()">M-</button>
+      <button class="button" onclick="memoryClear()">MC</button>
+      <button class="button" onclick="memoryRecall()">MR</button>
+      <button class="button" onclick="memoryStore()">MS</button>
+      <button class="button" onclick="memoryAdd()">M+</button>
+      <button class="button" onclick="memorySubtract()">M-</button>
     </div>
 
     <div id="memory-area">
@@ -709,7 +764,7 @@
     const clearTapeAction = () => ({type: "clearTape"})
     const clearAllAction = () => ({type: "clearAll"})
 
-    const memoryClearAction = () => ({type: "memoryClear"})
+    const memoryClearAction = () => ({type: "memoryCle    align-items: center;ar"})
     const memoryAddAction = () => ({type: "memoryAdd"})
     const memorySubtractAction = () => ({type: "memorySubtract"})
     const memoryStoreAction = () => ({type: "memoryStore"})
@@ -763,10 +818,16 @@
       }
 
       if (state.copyTapeResult === COPY_TAPE_RESULT.SUCCESS) {
+        copyButton.style.backgroundColor = getComputedStyle(copyButton).getPropertyValue("--color-pop");
+        copyButton.classList.add("copy-button-notification")
         copyButton.innerHTML = '⧉ - Copied!'
       } else if (state.copyTapeResult === COPY_TAPE_RESULT.ERROR) {
+        copyButton.style.backgroundColor = getComputedStyle(copyButton).getPropertyValue("--color-error");
+        copyButton.classList.add("copy-button-notification")
         copyButton.innerHTML = '⧉ - Failed!'
       } else {
+        copyButton.classList.remove("copy-button-notification")
+        copyButton.style.backgroundColor = getComputedStyle(copyButton).getPropertyValue("--color-container");
         copyButton.innerHTML = '⧉'
       }
     }
