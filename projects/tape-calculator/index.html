@@ -40,8 +40,15 @@
       grid-area: tape;
       border: 1px solid black;
       padding: 8px;
+      display: block;
+      height: 225px;
+      overflow-y: scroll;
+    }
+
+    #tape-area-content {
       display: grid;
       place-content: end;
+      /* height: 100%; */
     }
 
     #calculator-area {
@@ -204,10 +211,12 @@
     </div>
 
     <div id="tape-area">
-      <div id="tape">
-        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+      <div id="tape-area-content">
+        <div id="tape">
+          &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        </div>
+        <button id="copy-button" onclick="copyTape()">⧉</button>
       </div>
-      <button id="copy-button" onclick="copyTape()">⧉</button>
     </div>
 
     <div id="memory-actions-area">
@@ -226,6 +235,7 @@
   <script>
     math.config({
       number: 'BigNumber',
+      precision: 16,
     })
 
     const OPERATION = {
@@ -233,7 +243,8 @@
       SUB: 'SUB',
       DIV: 'DIV',
       MUL: 'MUL',
-      INIT: 'INIT'
+      INIT: 'INIT',
+      EQUALS: 'EQUALS',
     }
 
     const createStore = (initialState, reducer = {}, subscribers = [], middleware = []) => {
@@ -270,6 +281,31 @@
       },
     }
 
+    /*
+                          36  
+                           6 x
+                           3 +
+                           8 x
+------------------------------ 
+                       1,752 = (put this into the entry, but non editable?)
+                           6 +
+                           7 -
+------------------------------
+                       1,751 =
+                       
+==============================
+
+                           6
+                           5 +
+------------------------------
+                          11 =
+                          
+                          
+                          
+                          hit + x2, add num 2x
+                          for plus and minus, if you hit either key x2, start adding and subtracting last value
+    */
+
     // Selectors
     const currentValueSelector = (state) => state.current.num
     const currentOpSelector = (state) => state.current.op
@@ -278,62 +314,81 @@
       return currentNumValue ? math.bignumber(currentNumValue) : math.bignumber(0)
     }
     const currentValueEmptySelector = (state) => !state.current.num.length || state.current.num === '0'
+    const runningTotalSelector = (state) => {
+      const log = logSelector(state)
+
+      return log.reduce((total, {op, num}) => {
+        return op === OPERATION.ADD ? total.add(num)
+          : op === OPERATION.SUB ? total.subtract(num)
+            : op === OPERATION.MUL ? total.multiply(num)
+              : op === OPERATION.DIV ? total.divide(num)
+                : op === OPERATION.INIT ? math.chain(num)
+                  : op === OPERATION.EQUALS ? math.chain(num)
+                    : math.chain(0)
+      }, math.chain(math.bignumber(0)))
+    }
+    const currentDisplayValueSelector = (state) => {
+      const currentValue = currentValueSelector(state)
+      const currentTotal = currentTotalSelector(state)
+      const currentOp = currentOpSelector(state)
+
+      var displayValue = currentValue
+      if (displayValue === '') {
+        const runningTotal = runningTotalSelector(state)
+        displayValue = runningTotal
+      }
+
+      return displayValue || '0'
+    }
+    const currentDisplayBigNumberSelector = (state) => {
+      const currentDisplayValue = currentDisplayValueSelector(state)
+      return math.bignumber(currentDisplayValue)
+    }
+
     const logSelector = (state) => state.log ?? []
     const isLogClearedSelector = (state) => state.log === null
     const memoryValueSelector = (state) => state.memory
     const lineSizeSelector = (state) => state.lineSize
+
+
+    const currentTotalSelector = (state) => state.log?.findLast(item => item.op === OPERATION.EQUALS)?.num
+
     const tapeContentSelector = (state) => {
       const lineSize = lineSizeSelector(state)
       const log = logSelector(state)
 
       if (!log.length) return "".padStart(lineSize, ' ')
 
-      let text = ""
-      let total = math.chain(math.bignumber(0))
+      const formatLine = (num, sign) => {
+        return (numberFormat(num) + ' ' + sign).padStart(lineSize, ' ')
+      }
 
-      log.forEach(({op, num}) => {
-        let sign = ' '
-
+      const text = log.map(({op, num}) => {
         switch (op) {
           case OPERATION.ADD:
-            total = total.add(num)
-            sign = '+'
-            break
+            return formatLine(num, '+')
 
           case OPERATION.SUB:
-            total = total.subtract(num)
-            sign = '-'
-            break
+            return formatLine(num, '-')
 
           case OPERATION.MUL:
-            total = total.multiply(num)
-            sign = 'x'
-            break
+            return formatLine(num, 'x')
 
           case OPERATION.DIV:
-            total = total.divide(num)
-            sign = '÷'
-            break
+            return formatLine(num, '÷')
 
           case OPERATION.INIT:
-            total = total.add(num)
-            sign = ' '
-            break
+            return '\n' + formatLine(num, ' ')
+
+          case OPERATION.EQUALS:
+            return '-'.repeat(lineSize) + '\n' + formatLine(num, '=')
 
           default:
             throw `ERROR! Unknown operation ${op}`
         }
-
-        const line = numberFormat(num) + ' ' + sign
-
-        text += "\n" + line.padStart(lineSize, ' ')
       })
 
-      text += '\n' + '-'.repeat(lineSize) + '\n'
-      totalString = numberFormat(total.done())
-      text += (totalString + ' =').padStart(lineSize, ' ')
-
-      return text.substring(1)
+      return text.join("\n").substring(1)
     }
 
     // Reducers
@@ -424,34 +479,65 @@
 
     const handleAppendOperation = (state, {payload: {op}}) => {
       const log = logSelector(state)
+      const currentValue = currentValueSelector(state)
       const currentNum = currentBigNumSelector(state)
       const currentOp = currentOpSelector(state)
 
-      const newLog = log.length
-        ? [...log, {num: currentNum, op: currentOp}]
-        : [{num: currentNum, op: OPERATION.INIT}]
+      if (currentValue === '' && log.length) {
+        return {
+          ...state,
+          current: {
+            ...state.current,
+            op: op
+          }
+        }
 
-      return {
-        ...state,
-        log: newLog,
-        current: {
-          num: '',
-          op: op
+      } else {
+        const newLog = log.length
+          ? [...log, {num: currentNum, op: currentOp}]
+          : [{num: currentNum, op: OPERATION.INIT}]
+
+        return {
+          ...state,
+          log: newLog,
+          current: {
+            num: '',
+            op: op
+          }
         }
       }
+
     }
 
     const handleEquals = (state, action) => {
       const log = logSelector(state)
-      const currentNum = currentBigNumSelector(state)
+      const currentValue = currentValueSelector(state)
       const currentOp = currentOpSelector(state)
 
-      const newLog = log.length
-        ? [...log, {num: math.bignumber(currentNum), op: currentOp}]
-        : [{num: math.bignumber(currentNum), op: OPERATION.INIT}]
+      let newLog = [...log]
+      if (currentValue !== '' && currentOp) {
+        const currentNum = currentBigNumSelector(state)
+
+        newLog = log.length
+          ? [...log, {num: currentNum, op: currentOp}]
+          : [{num: currentNum, op: OPERATION.INIT}]
+      }
+
+      const intermediateState = {
+        ...state,
+        log: newLog,
+      }
+
+      const total = runningTotalSelector(intermediateState)
+
+      newLog = [...newLog, {num: total.done(), op: OPERATION.EQUALS}]
 
       return {
         ...state,
+        current: {
+          num: '',
+          op: OPERATION.INIT
+        },
         log: newLog,
       }
     }
@@ -504,7 +590,7 @@
     }
 
     const handleMemoryAdd = (state, action) => {
-      const currentNum = currentBigNumSelector(state)
+      const currentNum = currentDisplayValueSelector(state)
       const memory = memoryValueSelector(state)
 
       return {
@@ -514,7 +600,7 @@
     }
 
     const handleMemorySubtract = (state, action) => {
-      const currentNum = currentBigNumSelector(state)
+      const currentNum = currentDisplayValueSelector(state)
       const memory = memoryValueSelector(state)
 
       return {
@@ -524,7 +610,7 @@
     }
 
     const handleMemoryStore = (state, action) => {
-      const currentNum = currentBigNumSelector(state)
+      const currentNum = currentDisplayValueSelector(state)
 
       return {
         ...state,
@@ -588,20 +674,30 @@
 
     // Subscribers
     const numberFormat = (num) => {
-      return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",")
+      const numStr = num.toString()
+
+      const [integer, decimal] = numStr.split('.')
+
+      const formattedInteger = integer.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
+
+      return decimal ? `${formattedInteger}.${decimal}` : formattedInteger
+
+      return [formattedInteger, decimal].filter(x => !!x).join('.')
     }
 
     const renderCurrent = (state) => {
       const current = document.getElementById("current")
-      const currentValue = currentValueSelector(state) || '0'
-      current.innerHTML = numberFormat(currentValue)
+      const display = currentDisplayValueSelector(state)
+      current.innerHTML = numberFormat(display)
     }
 
     const renderTape = (state, prevState) => {
+      const tapeArea = document.getElementById("tape-area")
       const tape = document.getElementById("tape")
       const lineSize = lineSizeSelector(state)
 
       const log = logSelector(state)
+      const prevLog = logSelector(prevState)
 
       const wasCleared = isLogClearedSelector(state)
       if (wasCleared) {
@@ -612,6 +708,10 @@
       const tapeContent = tapeContentSelector(state)
 
       tape.innerHTML = tapeContent
+
+      if (log !== prevLog) {
+        tapeArea.scrollTo(0, tapeArea.scrollHeight)
+      }
     }
 
     const renderMemory = (state) => {
@@ -734,6 +834,7 @@
 
     document.addEventListener('keydown', function (event) {
       handleKeyboardEvent(event.key)
+      event.preventDefault()
     });
   </script>
 </body>

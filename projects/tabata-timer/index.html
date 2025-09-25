@@ -1,100 +1,631 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Tabata Timer</title>
 </head>
 
 <body>
+  <progress id="workout-progress" value="0"></progress>
+  <p id="roundsAndSets"></p>
+  <h1>
+    <span id="timer">READY</span>
+  </h1>
+  <p>
+    <span id="round-type-indicator" style="height: 20px; width: 20px; border-radius: 50%; display: inline-block"></span>
+    &nbsp;
+    <span id="round-type"></span>
+  </p>
+  <progress id="timer-progress" value="0"></progress>
 
+  <br><br>
+
+  <button id="start-button" onclick="start()">Start</button>
+  <button id="pause-button" onclick="pause()">Pause</button>
+  <button id="stop-button" onclick="stop()">Stop</button>
 
   <script>
+    const createStore = (initialState, reducer = {}, subscribers = [], middleware = []) => {
+      let state = initialState
+
+      const getState = () => state
+
+      const dispatch = (action) => {
+        action = middleware.reduce((act, mw) => mw(act, state, dispatch), action)
+
+        let prevState = state;
+
+        if (action) {
+          state = reducer[action.type]?.(state, action) ?? state
+        }
+
+        subscribers.forEach(sub => sub(state, prevState))
+      }
+
+      return {
+        dispatch,
+        getState,
+      }
+    }
+
+    const readQueryParam = (key, orDefault) => {
+      const param = (new URLSearchParams(window.location.search)).get(key) ?? orDefault
+      return parseInt(param, 10)
+    }
+
+    const TIMER_TYPE = {
+      INIT: 'init',
+      REST: 'rest',
+      WORK: 'work',
+      BREAK: 'break',
+      COUNTDOWN: 'countdown',
+    }
+
+    const TIMER_STATE = {
+      STOPPED: 'stopped',
+      STARTED: 'started',
+      PAUSED: 'paused',
+      COMPLETE: 'complete'
+    }
+
+    // State
     const initialState = {
       config: {
-        rounds: 8,
-        sets: 5,
-        breakLengthMs: 60_000,
-        restLengthMs: 20_000,
-        workLengthMs: 10_000,
+        rounds: readQueryParam("rounds", 8),
+        sets: readQueryParam("sets", 5),
+        breakLength: readQueryParam("break", 60),
+        restLength: readQueryParam("rest", 10),
+        workLength: readQueryParam("work", 20),
       },
-      current: null
+      timer: {
+        state: TIMER_STATE.STOPPED,
+        type: TIMER_TYPE.INIT,
+      }
     }
 
-    const state = initialState
 
-    const reduce = ({action, payload}, state) => {
-      return action === 'START' ? start(state)
-        : action === 'TICK' ? tick(state)
-          : state
+    // Selectors
+    const selectRounds = (state) => state.config.rounds
+    const selectSets = (state) => state.config.sets
+    const selectBreakLength = (state) => state.config.breakLength
+    const selectRestLength = (state) => state.config.restLength
+    const selectWorkLength = (state) => state.config.workLength
+
+    const selectIsTimerStarted = (state) => state.timer.state === TIMER_STATE.STARTED
+    const selectIsTimerStopped = (state) => state.timer.state === TIMER_STATE.STOPPED
+    const selectIsTimerPaused = (state) => state.timer.state === TIMER_STATE.PAUSED
+    const selectIsTimerComplete = (state) => state.timer.state === TIMER_STATE.COMPLETE
+
+    const selectCurrentRound = (state) => state.timer.round
+    const selectCurrentSet = (state) => state.timer.set
+
+    const selectTimerType = (state) => state.timer.type
+
+    const selectTimerSecondsRemaining = (state) => state.timer.remaining
+    const selectTimerSecondsDuration = (state) => state.timer.type === TIMER_TYPE.COUNTDOWN ? 3
+      : state.timer.type === TIMER_TYPE.BREAK ? state.config.breakLength
+        : state.timer.type === TIMER_TYPE.REST ? state.config.restLength
+          : state.timer.type === TIMER_TYPE.WORK ? state.config.workLength
+            : 1
+
+    const selectSetLength = (state) => {
+      const rounds = selectRounds(state)
+      const restLength = selectRestLength(state)
+      const workLength = selectWorkLength(state)
+
+      return (workLength * rounds) + (restLength * (rounds - 1))
     }
 
-    // start
-    const start = (state) => {
+    const selectTotalTime = (state) => {
+      const sets = selectSets(state)
+
+      const breakCount = sets - 1
+      const breakTime = selectBreakLength(state)
+      const breakTotalTime = breakTime * breakCount
+
+      const setTime = selectSetLength(state)
+      const setTotalTime = setTime * sets
+
+      return breakTotalTime + setTotalTime
+    }
+
+    const selectRoundedTimeElapsed = (state) => {
+      if (selectIsTimerComplete(state)) {
+        return selectTotalTime(state)
+      }
+
+      const sets = selectSets(state)
+      const rounds = selectRounds(state)
+      const breakLength = selectBreakLength(state)
+      const restLength = selectRestLength(state)
+      const workLength = selectWorkLength(state)
+
+      const currentRound = selectCurrentRound(state) ?? 1
+      const currentSet = selectCurrentSet(state) ?? 1
+
+      const timerType = selectTimerType(state)
+
+      const isBreak = timerType === TIMER_TYPE.BREAK
+
+      const breaksElapsed = currentSet - 1
+      const breaksElapsedTime = breaksElapsed * breakLength
+
+      const setDuration = selectSetLength(state)
+      const setsElapsed = currentSet - 1
+      const setsElapsedTime = setsElapsed * setDuration
+
+      const roundDuration = restLength + workLength
+      const roundsElapsed = isBreak ? currentRound : currentRound - 1
+      const roundsElapsedTime = isBreak ? (roundsElapsed * roundDuration) - restLength : roundsElapsed * roundDuration
+
+      const currentRoundElapsedTime = timerType !== TIMER_TYPE.REST ? 0 : workLength
+
+      return breaksElapsedTime + setsElapsedTime + roundsElapsedTime + currentRoundElapsedTime
+    }
+
+    // Reducers
+    // TODO: Separate actions/logic for begin vs resume?
+    const handleStartTimer = (state, action) => {
+      if (selectIsTimerStarted(state)) return state
+
+      if (selectIsTimerPaused(state)) {
+        return {
+          ...state,
+          timer: {
+            ...state.timer,
+            state: TIMER_STATE.STARTED,
+          }
+        }
+      } else {
+        const duration = selectWorkLength(state)
+
+        return {
+          ...state,
+          timer: {
+            ...state.timer,
+            state: TIMER_STATE.STARTED,
+            type: TIMER_TYPE.COUNTDOWN,
+            round: 1,
+            set: 1,
+            remaining: 3,
+          }
+        }
+      }
+
+    }
+
+    const handleStopTimer = (state, action) => {
+      if (selectIsTimerStopped(state)) return state
+
       return {
         ...state,
-        current: {
-          round: 1,
-          set: 1,
-          workRestBreak: 'work',
-          timer: state.workLengthMs,
-          complete: false,
+        timer: {
+          state: TIMER_STATE.STOPPED,
+          type: TIMER_TYPE.INIT,
+        }
+      }
+    }
+
+    const handlePauseTimer = (state, action) => {
+      if (selectIsTimerPaused(state)) return state
+
+      return {
+        ...state,
+        timer: {
+          ...state.timer,
+          state: TIMER_STATE.PAUSED,
         }
       }
     }
 
     // tick
-    const tick = (state) => {
-      const nextTime = state.current.timer - 1
+    const handleTick = (state, action) => {
+      if (!selectIsTimerStarted(state)) return state
+
+      const nextTime = state.timer.remaining - 1
       const isNextTimeJustTick = nextTime !== 0
-      const isComplete = state.current.set === state.config.sets && state.current.round === state.config.rounds
-      const isNextRoundBreak = state.current.set === state.config.sets
-      const isNextRound = state.current.workRestBreak === 'break'
-      const isNextRest = state.current.workRestBreak === 'work'
-      const isNextSet = state.current.workRestBreak === 'rest'
+      const isCountdown = state.timer.type === TIMER_TYPE.COUNTDOWN
+      const isComplete = state.timer.set === state.config.sets && state.timer.round === state.config.rounds
+      const isNextBreak = state.timer.round === state.config.rounds && state.timer.type !== TIMER_TYPE.BREAK
+      const isNextSet = state.timer.type === TIMER_TYPE.BREAK
+      const isNextRest = state.timer.type === TIMER_TYPE.WORK
+      const isNextRound = state.timer.type === TIMER_TYPE.REST
 
       const newTimer = isNextTimeJustTick ? {
-        ...state.current,
-        timer: nextTime
+        ...state.timer,
+        remaining: nextTime
+      } : isCountdown ? {
+        ...state.timer,
+        type: TIMER_TYPE.WORK,
+        remaining: state.config.workLength,
       } : isComplete ? {
-        ...state.current,
-        timer: 0,
-        complete: true,
-      } : isNextRoundBreak ? {
-        ...state.current,
-        workRestBreak: 'break',
-        timer: state.config.breakLengthMs,
-      } : isNextRound ? {
-        ...state.current,
-        set: 1,
-        round: state.current.round + 1,
-        workRestBreak: 'work',
-        timer: state.config.workLengthMs,
-      } : isNextRest ? {
-        ...state.current,
-        workRestBreak: 'rest',
-        timer: state.config.restLengthMs,
+        ...state.timer,
+        remaining: 0,
+        state: TIMER_STATE.COMPLETE
+      } : isNextBreak ? {
+        ...state.timer,
+        type: TIMER_TYPE.BREAK,
+        remaining: state.config.breakLength,
       } : isNextSet ? {
-        ...state.current,
-        set: state.current.set + 1,
-        workRestBreak: 'work',
-        timer: state.config.workLengthMs,
-      } : state.current
+        ...state.timer,
+        set: state.timer.set + 1,
+        round: 1,
+        type: TIMER_TYPE.WORK,
+        remaining: state.config.workLength,
+      } : isNextRest ? {
+        ...state.timer,
+        type: TIMER_TYPE.REST,
+        remaining: state.config.restLength,
+      } : isNextRound ? {
+        ...state.timer,
+        round: state.timer.round + 1,
+        type: TIMER_TYPE.WORK,
+        remaining: state.config.workLength,
+      } : state.timer
 
       return {
         ...state,
-        current: newTimer
+        timer: newTimer
       }
     }
 
-    // pause
-
-    const sideEffectHandler = (action, state) => {
-
+    const reducer = {
+      tick: handleTick,
+      start: handleStartTimer,
+      stop: handleStopTimer,
+      pause: handlePauseTimer,
+      // restart: handleRestartTimer,
     }
 
+    // Actions
+    const tickAction = () => ({type: "tick"})
+    const startAction = () => ({type: "start"})
+    const stopAction = () => ({type: "stop"})
+    const pauseAction = () => ({type: "pause"})
 
+    const uiUpdate = (state, prevState) => {
+      const roundsAndSets = document.getElementById("roundsAndSets")
+      const timer = document.getElementById("timer")
+      const timerProgress = document.getElementById("timer-progress")
+      const stopButton = document.getElementById("stop-button")
+      const startButton = document.getElementById("start-button")
+      const pauseButton = document.getElementById("pause-button")
+      const roundTypeText = document.getElementById("round-type")
+      const roundTypeIndicator = document.getElementById("round-type-indicator")
+      const workoutProgress = document.getElementById("workout-progress")
+
+      const timeRemaining = selectTimerSecondsRemaining(state)
+      const duration = selectTimerSecondsDuration(state)
+
+      const isPaused = selectIsTimerPaused(state)
+      const isStopped = selectIsTimerStopped(state)
+      const isStarted = selectIsTimerStarted(state)
+      const isComplete = selectIsTimerComplete(state)
+
+      const currentSet = selectCurrentSet(state)
+      const sets = selectSets(state)
+      const currentRound = selectCurrentRound(state)
+      const rounds = selectRounds(state)
+
+      timerProgress.max = duration
+
+      if (isStopped) {
+        roundsAndSets.innerHTML = ""
+        timerProgress.value = duration
+        timer.innerHTML = "START"
+      } else if (isComplete) {
+        roundsAndSets.innerHTML = `Round: ${currentRound}\\${rounds} Set: ${currentSet}\\${sets}`
+        timerProgress.value = duration
+        timer.innerHTML = "DONE"
+      } else {
+        roundsAndSets.innerHTML = `Round: ${currentRound}\\${rounds} Set: ${currentSet}\\${sets}`
+        timerProgress.value = timeRemaining
+        timer.innerHTML = `${timeRemaining}`
+      }
+
+      const workoutDuration = selectTotalTime(state)
+      const workoutTimeElapsed = selectRoundedTimeElapsed(state)
+
+      workoutProgress.max = workoutDuration
+      workoutProgress.value = workoutTimeElapsed
+
+      const timerType = selectTimerType(state)
+
+      switch (timerType) {
+        case TIMER_TYPE.INIT:
+          roundTypeText.innerHTML = "Let's go!"
+          roundTypeIndicator.style.backgroundColor = 'blue'
+          break;
+        case TIMER_TYPE.COUNTDOWN:
+          if (timeRemaining === 3) {
+            roundTypeText.innerHTML = "Ready..."
+          } else if (timeRemaining === 2) {
+            roundTypeText.innerHTML = "Set..."
+          } else {
+            roundTypeText.innerHTML = "Here we go!"
+          }
+          roundTypeIndicator.style.backgroundColor = 'orange'
+          break;
+        case TIMER_TYPE.BREAK:
+          roundTypeText.innerHTML = "BREAK"
+          roundTypeIndicator.style.backgroundColor = 'red'
+          break;
+        case TIMER_TYPE.REST:
+          roundTypeText.innerHTML = "REST"
+          roundTypeIndicator.style.backgroundColor = 'yellow'
+          break;
+        case TIMER_TYPE.WORK:
+          roundTypeText.innerHTML = "WORK"
+          roundTypeIndicator.style.backgroundColor = 'green'
+          break;
+      }
+
+      stopButton.disabled = isStopped
+      pauseButton.disabled = isPaused || isStopped
+      startButton.disabled = isStarted
+    }
+
+    var timer = null
+    const timerMiddleware = (action, state, dispatch) => {
+      if (action.type !== 'tick' || !selectIsTimerStarted(state)) {
+        clearInterval(timer)
+      }
+
+      if (action.type === "start") {
+        timer = setInterval(() => {
+          dispatch(tickAction())
+        }, 1000)
+      }
+
+      return action
+    }
+
+    const alarmSubscriber = (state, prevState) => {
+      const isRunning = selectIsTimerStarted(state) && selectIsTimerStarted(prevState)
+      const wasCompleted = selectIsTimerComplete(state) && !selectIsTimerComplete(prevState)
+
+      const prevRemaining = selectTimerSecondsRemaining(prevState)
+      const currRemaining = selectTimerSecondsRemaining(state)
+
+      if (isRunning && currRemaining > prevRemaining) {
+        try {
+          const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+          const oscillator = audioContext.createOscillator();
+          const gainNode = audioContext.createGain();
+
+          oscillator.connect(gainNode);
+          gainNode.connect(audioContext.destination);
+
+          oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
+          oscillator.type = 'sine';
+
+          gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
+          gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2);
+
+          oscillator.start(audioContext.currentTime);
+          oscillator.stop(audioContext.currentTime + 0.2);
+        } catch (error) {
+          console.log('Audio not supported');
+        }
+      }
+
+      if (wasCompleted) {
+        try {
+          const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+          [0, 0.3, 0.6].forEach((delay, index) => {
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+
+            oscillator.frequency.setValueAtTime(1000 + (index * 200), audioContext.currentTime + delay);
+            oscillator.type = 'sine';
+
+            gainNode.gain.setValueAtTime(0.1, audioContext.currentTime + delay);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + delay + 0.2);
+
+            oscillator.start(audioContext.currentTime + delay);
+            oscillator.stop(audioContext.currentTime + delay + 0.2);
+          });
+        } catch (error) {
+          console.log('Audio not supported');
+        }
+      }
+    }
+
+    const logger = (state) => {
+      console.log(state)
+    }
+
+    const subscribers = [uiUpdate, alarmSubscriber]
+    const middleware = [timerMiddleware]
+
+    const store = createStore(initialState, reducer, subscribers, middleware)
+
+    const start = () => {store.dispatch(startAction())}
+    const stop = () => {store.dispatch(stopAction())}
+    const pause = () => {store.dispatch(pauseAction())}
+
+    uiUpdate(store.getState(), store.getState())
+
+    // Tests
+    const test = () => {
+      const baseTestState = {
+        config: {
+          rounds: 8,
+          sets: 5,
+          breakLength: 60,
+          restLength: 10,
+          workLength: 20,
+        },
+        timer: {
+          state: TIMER_STATE.STOPPED,
+          type: TIMER_TYPE.INIT,
+        }
+      }
+      const baseTimerState = {
+        state: TIMER_STATE.STARTED,
+        type: TIMER_TYPE.WORK,
+        round: 1,
+        set: 1,
+        remaining: 20,
+      }
+
+      const deepEquals = (obj1, obj2) => {
+        if (obj1 === obj2) return true; // Handles primitive types and same object reference
+
+        if (typeof obj1 !== 'object' || obj1 === null ||
+          typeof obj2 !== 'object' || obj2 === null) {
+          return false; // Not objects or one is null
+        }
+
+        const keys1 = Object.keys(obj1);
+        const keys2 = Object.keys(obj2);
+
+        if (keys1.length !== keys2.length) return false;
+
+        for (const key of keys1) {
+          if (!keys2.includes(key) || !deepEquals(obj1[key], obj2[key])) {
+            return false;
+          }
+        }
+        return true;
+      }
+
+      const assert = (func, expected, actual) => {
+        if (deepEquals(actual, expected)) {
+          console.log(`${func}: Success!!`)
+        } else {
+          console.error(`${func}: ${actual} !== ${expected}`)
+          console.log("expected")
+          console.log(expected)
+          console.log("actual")
+          console.log(actual)
+        }
+      }
+
+      const tick_does_nothing_if_timer_not_started = () => {
+        // Given
+        const testState = {...baseTestState, timer: {...baseTimerState, state: TIMER_STATE.PAUSED}}
+        const underTest = createStore(testState, reducer)
+        const expected = {...baseTestState, timer: {...baseTimerState, state: TIMER_STATE.PAUSED}}
+
+        // When
+        underTest.dispatch(tickAction())
+        const actual = underTest.getState()
+
+        // Then
+        assert(tick_does_nothing_if_timer_not_started.name, expected, actual)
+      }
+
+      const tick_updates_state_for_just_tick = () => {
+        // Given
+        const testState = {...baseTestState, timer: {...baseTimerState, remaining: 15}}
+        const underTest = createStore(testState, reducer)
+        const expected = {...baseTestState, timer: {...baseTimerState, remaining: 14}}
+
+        // When
+        underTest.dispatch(tickAction())
+        const actual = underTest.getState()
+
+        // Then
+        assert(tick_updates_state_for_just_tick.name, expected, actual)
+      }
+
+      const tick_starts_first_round_if_countdown_complete = () => {
+        // Given
+        const testState = {...baseTestState, timer: {...baseTimerState, type: TIMER_TYPE.COUNTDOWN, remaining: 1}}
+        const underTest = createStore(testState, reducer)
+        const expected = {...baseTestState, timer: {...baseTimerState, type: TIMER_TYPE.WORK, remaining: 20}}
+
+        // When
+        underTest.dispatch(tickAction())
+        const actual = underTest.getState()
+
+        // Then
+        assert(tick_starts_first_round_if_countdown_complete.name, expected, actual)
+      }
+
+      const tick_sets_timer_complete_if_final_set_complete = () => {
+        // Given
+        const testState = {...baseTestState, timer: {...baseTimerState, remaining: 1, round: 8, set: 5}}
+        const underTest = createStore(testState, reducer)
+        const expected = {...baseTestState, timer: {...baseTimerState, remaining: 0, round: 8, set: 5, state: TIMER_STATE.COMPLETE}}
+
+        // When
+        underTest.dispatch(tickAction())
+        const actual = underTest.getState()
+
+        // Then
+        assert(tick_sets_timer_complete_if_final_set_complete.name, expected, actual)
+      }
+
+      const tick_sets_break_timer_if_set_complete = () => {
+        // Given
+        const testState = {...baseTestState, timer: {...baseTimerState, round: 8, type: TIMER_TYPE.WORK, remaining: 1}}
+        const underTest = createStore(testState, reducer)
+        const expected = {...baseTestState, timer: {...baseTimerState, round: 8, type: TIMER_TYPE.BREAK, remaining: 60}}
+
+        // When
+        underTest.dispatch(tickAction())
+        const actual = underTest.getState()
+
+        // Then
+        assert(tick_sets_break_timer_if_set_complete.name, expected, actual)
+      }
+
+      const tick_starts_next_round_if_break_complete = () => {
+        // Given
+        const testState = {...baseTestState, timer: {...baseTimerState, type: TIMER_TYPE.BREAK, remaining: 1, round: 8, set: 1}}
+        const underTest = createStore(testState, reducer)
+        const expected = {...baseTestState, timer: {...baseTimerState, type: TIMER_TYPE.WORK, remaining: 20, round: 1, set: 2}}
+
+        // When
+        underTest.dispatch(tickAction())
+        const actual = underTest.getState()
+
+        // Then
+        assert(tick_starts_next_round_if_break_complete.name, expected, actual)
+      }
+
+      const tick_starts_rest_if_work_complete = () => {
+        // Given
+        const testState = {...baseTestState, timer: {...baseTimerState, type: TIMER_TYPE.WORK, remaining: 1}}
+        const underTest = createStore(testState, reducer)
+        const expected = {...baseTestState, timer: {...baseTimerState, type: TIMER_TYPE.REST, remaining: 10}}
+
+        // When
+        underTest.dispatch(tickAction())
+        const actual = underTest.getState()
+
+        // Then
+        assert(tick_starts_rest_if_work_complete.name, expected, actual)
+      }
+
+      const tick_starts_work_if_rest_complete = () => {
+        // Given
+        const testState = {...baseTestState, timer: {...baseTimerState, type: TIMER_TYPE.REST, remaining: 1, round: 2}}
+        const underTest = createStore(testState, reducer)
+        const expected = {...baseTestState, timer: {...baseTimerState, type: TIMER_TYPE.WORK, remaining: 20, round: 3}}
+
+        // When
+        underTest.dispatch(tickAction())
+        const actual = underTest.getState()
+
+        // Then
+        assert(tick_starts_work_if_rest_complete.name, expected, actual)
+      }
+
+      tick_does_nothing_if_timer_not_started()
+      tick_updates_state_for_just_tick()
+      tick_starts_first_round_if_countdown_complete()
+      tick_starts_next_round_if_break_complete()
+      tick_sets_break_timer_if_set_complete()
+      tick_sets_timer_complete_if_final_set_complete()
+      tick_starts_rest_if_work_complete()
+      tick_starts_work_if_rest_complete()
+    }
+    test()
   </script>
 </body>
 
