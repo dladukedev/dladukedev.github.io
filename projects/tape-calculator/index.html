@@ -928,7 +928,7 @@
     const memoryAdd = () => store.dispatch(memoryAddAction())
     const memorySubtract = () => store.dispatch(memorySubtractAction())
 
-    const handleKeyboardEvent = ({key, ctrlKey}) => {
+    const handleKeyboardEvent = ({key}) => {
       switch (key) {
         case '1':
         case '2':
@@ -958,12 +958,6 @@
         case "/":
           store.dispatch(appendOperationAction(OPERATION.DIV))
           event.preventDefault()
-          break
-        case "c":
-          if (ctrlKey) {
-            store.dispatch(copyTapeAction())
-            event.preventDefault()
-          }
           break
         case "=":
         case "Enter":
