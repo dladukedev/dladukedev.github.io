@@ -53,6 +53,8 @@
     #tape {
       font-family: monospace;
       white-space: pre;
+      text-align: end;
+      min-width: 30ch;
     }
 
     #current {
@@ -353,7 +355,6 @@
 
     // State
     const initialState = {
-      lineSize: 30,
       memory: math.bignumber(0),
       log: [],
       current: {
@@ -405,19 +406,16 @@
     const logSelector = (state) => state.log ?? []
     const isLogClearedSelector = (state) => state.log === null
     const memoryValueSelector = (state) => state.memory
-    const lineSizeSelector = (state) => state.lineSize
-
 
     const currentTotalSelector = (state) => state.log?.findLast(item => item.op === OPERATION.EQUALS)?.num
 
     const tapeContentSelector = (state) => {
-      const lineSize = lineSizeSelector(state)
       const log = logSelector(state)
 
-      if (!log.length) return "".padStart(lineSize, ' ')
+      if (!log.length) return ""
 
       const formatLine = (num, sign) => {
-        return (numberFormat(num) + ' ' + sign).padStart(lineSize, ' ')
+        return (numberFormat(num) + ' ' + sign)
       }
 
       const text = log.map(({op, num}) => {
@@ -438,7 +436,7 @@
             return '\n' + formatLine(num, ' ')
 
           case OPERATION.EQUALS:
-            return '-'.repeat(lineSize) + '\n' + formatLine(num, '=')
+            return '-'.repeat(30) + '\n' + formatLine(num, '=')
 
           default:
             throw `ERROR! Unknown operation ${op}`
@@ -806,14 +804,13 @@
       const tapeArea = document.getElementById("tape-area")
       const tape = document.getElementById("tape")
       const copyButton = document.getElementById("copy-button")
-      const lineSize = lineSizeSelector(state)
 
       const log = logSelector(state)
       const prevLog = logSelector(prevState)
 
       const wasCleared = isLogClearedSelector(state)
       if (wasCleared) {
-        tape.innerHTML = "CLEARED".padStart(lineSize, ' ')
+        tape.innerHTML = "CLEARED"
         return
       }
 
