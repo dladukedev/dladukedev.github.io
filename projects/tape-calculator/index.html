@@ -1,23 +1,38 @@
+<!-- MIT License - Copyright (c) 2025 Donovan J LaDuke -->
+
 <!DOCTYPE html>
 <html lang="en">
 
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Tape Calc</title>
-  <script type="text/javascript" src="./math.js"></script>
+  <title>Tape Calculator</title>
+  <link rel="shortcut icon"
+    href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' height='24px' viewBox='0 -960 960 960' width='24px' fill='%23e3e3e3'%3E%3Cpath d='M320-240h60v-80h80v-60h-80v-80h-60v80h-80v60h80v80Zm200-30h200v-60H520v60Zm0-100h200v-60H520v60Zm44-152 56-56 56 56 42-42-56-58 56-56-42-42-56 56-56-56-42 42 56 56-56 58 42 42Zm-314-70h200v-60H250v60Zm-50 472q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h560q33 0 56.5 23.5T840-760v560q0 33-23.5 56.5T760-120H200Zm0-80h560v-560H200v560Zm0-560v560-560Z'/%3E%3C/svg%3E" />
 
   <style>
+    * {
+      margin: 0;
+      padding: 0;
+      font-family: 'Arial';
+      box-sizing: border-box;
+    }
+
     :root {
       color-scheme: light dark;
       --color-background: light-dark(#FFFFFF, #000000);
       --color-highlight: light-dark(#F3F3F3, #121212);
       --color-container: light-dark(#EFEFEF, #222222);
       --color-container-highlight: light-dark(#D9D9D9, #333333);
-      --color-pop: light-dark(#93C47D, #284E13);
+      --color-pop: light-dark(#284E13, #93C47D);
+      --color-pop-container: light-dark(#93C47D, #284E13);
       --color-content: light-dark(#1F1F1F, #FFFFFF);
       --color-content-secondary: light-dark(#333333, #CCCCCC);
       --color-error: light-dark(#EA9999, #660000);
+    }
+
+    a {
+      color: var(--color-pop);
     }
 
     body {
@@ -42,8 +57,8 @@
     }
 
     .pop-button {
-      background-color: var(--color-pop);
-      border-color: var(--color-pop);
+      background-color: var(--color-pop-container);
+      border-color: var(--color-pop-container);
     }
 
     .large-text-button {
@@ -62,6 +77,7 @@
     }
 
     #content {
+      margin: 16px 0;
       display: grid;
       gap: 16px;
       grid-template-areas:
@@ -69,7 +85,7 @@
         "functions tape"
         "calculator tape"
         "memory-actions memory";
-      place-content: center;
+      place-content: start;
     }
 
     @media(max-width: 640px) {
@@ -265,8 +281,7 @@
       <button class="button highlight-button large-text-button" id="zero" onclick="appendNumber(0)">0</button>
       <button class="button highlight-button large-text-button" id="one" onclick="appendNumber(1)">1</button>
       <button class="button highlight-button large-text-button" id="two" onclick="appendNumber(2)">2</button>
-      <button class="button highlight-button large-text-button" class="button" id="three"
-        onclick="appendNumber(3)">3</button>
+      <button class="button highlight-button large-text-button" id="three" onclick="appendNumber(3)">3</button>
       <button class="button highlight-button large-text-button" id="four" onclick="appendNumber(4)">4</button>
       <button class="button highlight-button large-text-button" id="five" onclick="appendNumber(5)">5</button>
       <button class="button highlight-button large-text-button" id="six" onclick="appendNumber(6)">6</button>
@@ -309,12 +324,1086 @@
     </div>
   </div>
 
-  <script>
-    math.config({
-      number: 'BigNumber',
-      precision: 16,
-    })
+  <footer>
+    <h3>Tape Calculator</h3>
+    <br />
+    <p>This is a micro-project, check the source to see the code and do what you want with it!</p>
+    <br />
+    <p>Did you find this helpful? Buy me a coffee - <a href="https://ko-fi.com/donovanjladuke">Ko-fi</a></p>
+    <br />
+    <p>Donovan LaDuke 2025 - <a href="https://opensource.org/license/mit">MIT License</a></p>
+  </footer>
+  <script> // big.js =====================================================================
+    /*
+     *  big.js v7.0.1
+     *  A small, fast, easy-to-use library for arbitrary-precision decimal arithmetic.
+     *  Copyright (c) 2025 Michael Mclaughlin
+     *  https://github.com/MikeMcl/big.js/LICENCE.md
+     */
 
+    /************************************** EDITABLE DEFAULTS *****************************************/
+
+
+    // The default values below must be integers within the stated ranges.
+
+    /*
+     * The maximum number of decimal places (DP) of the results of operations involving division:
+     * div and sqrt, and pow with negative exponents.
+     */
+    var DP = 20,          // 0 to MAX_DP
+
+      /*
+       * The rounding mode (RM) used when rounding to the above decimal places.
+       *
+       *  0  Towards zero (i.e. truncate, no rounding).       (ROUND_DOWN)
+       *  1  To nearest neighbour. If equidistant, round up.  (ROUND_HALF_UP)
+       *  2  To nearest neighbour. If equidistant, to even.   (ROUND_HALF_EVEN)
+       *  3  Away from zero.                                  (ROUND_UP)
+       */
+      RM = 1,             // 0, 1, 2 or 3
+
+      // The maximum value of DP and Big.DP.
+      MAX_DP = 1E6,       // 0 to 1000000
+
+      // The maximum magnitude of the exponent argument to the pow method.
+      MAX_POWER = 1E6,    // 1 to 1000000
+
+      /*
+       * The negative exponent (NE) at and beneath which toString returns exponential notation.
+       * (JavaScript numbers: -7)
+       * -1000000 is the minimum recommended exponent value of a Big.
+       */
+      NE = -7,            // 0 to -1000000
+
+      /*
+       * The positive exponent (PE) at and above which toString returns exponential notation.
+       * (JavaScript numbers: 21)
+       * 1000000 is the maximum recommended exponent value of a Big, but this limit is not enforced.
+       */
+      PE = 21,            // 0 to 1000000
+
+      /*
+       * When true, an error will be thrown if a primitive number is passed to the Big constructor,
+       * or if valueOf is called, or if toNumber is called on a Big which cannot be converted to a
+       * primitive number without a loss of precision.
+       */
+      STRICT = false,     // true or false
+
+
+      /**************************************************************************************************/
+
+
+      // Error messages.
+      NAME = '[big.js] ',
+      INVALID = NAME + 'Invalid ',
+      INVALID_DP = INVALID + 'decimal places',
+      INVALID_RM = INVALID + 'rounding mode',
+      DIV_BY_ZERO = NAME + 'Division by zero',
+
+      // The shared prototype object.
+      P = {},
+      UNDEFINED = void 0,
+      NUMERIC = /^-?(\d+(\.\d*)?|\.\d+)(e[+-]?\d+)?$/i;
+
+
+    /*
+     * Create and return a Big constructor.
+     */
+    function _Big_() {
+
+      /*
+       * The Big constructor and exported function.
+       * Create and return a new instance of a Big number object.
+       *
+       * n {number|string|Big} A numeric value.
+       */
+      function Big(n) {
+        var x = this;
+
+        // Enable constructor usage without new.
+        if (!(x instanceof Big)) {
+          return n === UNDEFINED && arguments.length === 0 ? _Big_() : new Big(n);
+        }
+
+
+        // Duplicate.
+        if (n instanceof Big) {
+          x.s = n.s;
+          x.e = n.e;
+          x.c = n.c.slice();
+        } else {
+          if (typeof n !== 'string') {
+            if (Big.strict === true && typeof n !== 'bigint') {
+              throw TypeError(INVALID + 'value');
+            }
+
+            // Minus zero?
+            n = n === 0 && 1 / n < 0 ? '-0' : String(n);
+          }
+
+          parse(x, n);
+        }
+
+        // Retain a reference to this Big constructor.
+        // Shadow Big.prototype.constructor which points to Object.
+        x.constructor = Big;
+      }
+
+      Big.prototype = P;
+      Big.DP = DP;
+      Big.RM = RM;
+      Big.NE = NE;
+      Big.PE = PE;
+      Big.strict = STRICT;
+      Big.roundDown = 0;
+      Big.roundHalfUp = 1;
+      Big.roundHalfEven = 2;
+      Big.roundUp = 3;
+
+      return Big;
+    }
+
+
+    /*
+     * Parse the number or string value passed to a Big constructor.
+     *
+     * x {Big} A Big number instance.
+     * n {number|string} A numeric value.
+     */
+    function parse(x, n) {
+      var e, i, nl;
+
+      if (!NUMERIC.test(n)) {
+        throw Error(INVALID + 'number');
+      }
+
+      // Determine sign.
+      x.s = n.charAt(0) == '-' ? (n = n.slice(1), -1) : 1;
+
+      // Decimal point?
+      if ((e = n.indexOf('.')) > -1) n = n.replace('.', '');
+
+      // Exponential form?
+      if ((i = n.search(/e/i)) > 0) {
+
+        // Determine exponent.
+        if (e < 0) e = i;
+        e += +n.slice(i + 1);
+        n = n.substring(0, i);
+      } else if (e < 0) {
+
+        // Integer.
+        e = n.length;
+      }
+
+      nl = n.length;
+
+      // Determine leading zeros.
+      for (i = 0; i < nl && n.charAt(i) == '0';) ++i;
+
+      if (i == nl) {
+
+        // Zero.
+        x.c = [x.e = 0];
+      } else {
+
+        // Determine trailing zeros.
+        for (; nl > 0 && n.charAt(--nl) == '0';);
+        x.e = e - i - 1;
+        x.c = [];
+
+        // Convert string to array of digits without leading/trailing zeros.
+        for (e = 0; i <= nl;) x.c[e++] = +n.charAt(i++);
+      }
+
+      return x;
+    }
+
+
+    /*
+     * Round Big x to a maximum of sd significant digits using rounding mode rm.
+     *
+     * x {Big} The Big to round.
+     * sd {number} Significant digits: integer, 0 to MAX_DP inclusive.
+     * rm {number} Rounding mode: 0 (down), 1 (half-up), 2 (half-even) or 3 (up).
+     * [more] {boolean} Whether the result of division was truncated.
+     */
+    function round(x, sd, rm, more) {
+      var xc = x.c;
+
+      if (rm === UNDEFINED) rm = x.constructor.RM;
+      if (rm !== 0 && rm !== 1 && rm !== 2 && rm !== 3) {
+        throw Error(INVALID_RM);
+      }
+
+      if (sd < 1) {
+        more =
+          rm === 3 && (more || !!xc[0]) || sd === 0 && (
+            rm === 1 && xc[0] >= 5 ||
+            rm === 2 && (xc[0] > 5 || xc[0] === 5 && (more || xc[1] !== UNDEFINED))
+          );
+
+        xc.length = 1;
+
+        if (more) {
+
+          // 1, 0.1, 0.01, 0.001, 0.0001 etc.
+          x.e = x.e - sd + 1;
+          xc[0] = 1;
+        } else {
+
+          // Zero.
+          xc[0] = x.e = 0;
+        }
+      } else if (sd < xc.length) {
+
+        // xc[sd] is the digit after the digit that may be rounded up.
+        more =
+          rm === 1 && xc[sd] >= 5 ||
+          rm === 2 && (xc[sd] > 5 || xc[sd] === 5 &&
+            (more || xc[sd + 1] !== UNDEFINED || xc[sd - 1] & 1)) ||
+          rm === 3 && (more || !!xc[0]);
+
+        // Remove any digits after the required precision.
+        xc.length = sd;
+
+        // Round up?
+        if (more) {
+
+          // Rounding up may mean the previous digit has to be rounded up.
+          for (; ++xc[--sd] > 9;) {
+            xc[sd] = 0;
+            if (sd === 0) {
+              ++x.e;
+              xc.unshift(1);
+              break;
+            }
+          }
+        }
+
+        // Remove trailing zeros.
+        for (sd = xc.length; !xc[--sd];) xc.pop();
+      }
+
+      return x;
+    }
+
+
+    /*
+     * Return a string representing the value of Big x in normal or exponential notation.
+     * Handles P.toExponential, P.toFixed, P.toJSON, P.toPrecision, P.toString and P.valueOf.
+     */
+    function stringify(x, doExponential, isNonzero) {
+      var e = x.e,
+        s = x.c.join(''),
+        n = s.length;
+
+      // Exponential notation?
+      if (doExponential) {
+        s = s.charAt(0) + (n > 1 ? '.' + s.slice(1) : '') + (e < 0 ? 'e' : 'e+') + e;
+
+        // Normal notation.
+      } else if (e < 0) {
+        for (; ++e;) s = '0' + s;
+        s = '0.' + s;
+      } else if (e > 0) {
+        if (++e > n) {
+          for (e -= n; e--;) s += '0';
+        } else if (e < n) {
+          s = s.slice(0, e) + '.' + s.slice(e);
+        }
+      } else if (n > 1) {
+        s = s.charAt(0) + '.' + s.slice(1);
+      }
+
+      return x.s < 0 && isNonzero ? '-' + s : s;
+    }
+
+
+    // Prototype/instance methods
+
+
+    /*
+     * Return a new Big whose value is the absolute value of this Big.
+     */
+    P.abs = function () {
+      var x = new this.constructor(this);
+      x.s = 1;
+      return x;
+    };
+
+
+    /*
+     * Return 1 if the value of this Big is greater than the value of Big y,
+     *       -1 if the value of this Big is less than the value of Big y, or
+     *        0 if they have the same value.
+     */
+    P.cmp = function (y) {
+      var isneg,
+        x = this,
+        xc = x.c,
+        yc = (y = new x.constructor(y)).c,
+        i = x.s,
+        j = y.s,
+        k = x.e,
+        l = y.e;
+
+      // Either zero?
+      if (!xc[0] || !yc[0]) return !xc[0] ? !yc[0] ? 0 : -j : i;
+
+      // Signs differ?
+      if (i != j) return i;
+
+      isneg = i < 0;
+
+      // Compare exponents.
+      if (k != l) return k > l ^ isneg ? 1 : -1;
+
+      j = (k = xc.length) < (l = yc.length) ? k : l;
+
+      // Compare digit by digit.
+      for (i = -1; ++i < j;) {
+        if (xc[i] != yc[i]) return xc[i] > yc[i] ^ isneg ? 1 : -1;
+      }
+
+      // Compare lengths.
+      return k == l ? 0 : k > l ^ isneg ? 1 : -1;
+    };
+
+
+    /*
+     * Return a new Big whose value is the value of this Big divided by the value of Big y, rounded,
+     * if necessary, to a maximum of Big.DP decimal places using rounding mode Big.RM.
+     */
+    P.div = function (y) {
+      var x = this,
+        Big = x.constructor,
+        a = x.c,                  // dividend
+        b = (y = new Big(y)).c,   // divisor
+        k = x.s == y.s ? 1 : -1,
+        dp = Big.DP;
+
+      if (dp !== ~~dp || dp < 0 || dp > MAX_DP) {
+        throw Error(INVALID_DP);
+      }
+
+      // Divisor is zero?
+      if (!b[0]) {
+        throw Error(DIV_BY_ZERO);
+      }
+
+      // Dividend is 0? Return +-0.
+      if (!a[0]) {
+        y.s = k;
+        y.c = [y.e = 0];
+        return y;
+      }
+
+      var bl, bt, n, cmp, ri,
+        bz = b.slice(),
+        ai = bl = b.length,
+        al = a.length,
+        r = a.slice(0, bl),   // remainder
+        rl = r.length,
+        q = y,                // quotient
+        qc = q.c = [],
+        qi = 0,
+        p = dp + (q.e = x.e - y.e) + 1;    // precision of the result
+
+      q.s = k;
+      k = p < 0 ? 0 : p;
+
+      // Create version of divisor with leading zero.
+      bz.unshift(0);
+
+      // Add zeros to make remainder as long as divisor.
+      for (; rl++ < bl;) r.push(0);
+
+      do {
+
+        // n is how many times the divisor goes into current remainder.
+        for (n = 0; n < 10; n++) {
+
+          // Compare divisor and remainder.
+          if (bl != (rl = r.length)) {
+            cmp = bl > rl ? 1 : -1;
+          } else {
+            for (ri = -1, cmp = 0; ++ri < bl;) {
+              if (b[ri] != r[ri]) {
+                cmp = b[ri] > r[ri] ? 1 : -1;
+                break;
+              }
+            }
+          }
+
+          // If divisor < remainder, subtract divisor from remainder.
+          if (cmp < 0) {
+
+            // Remainder can't be more than 1 digit longer than divisor.
+            // Equalise lengths using divisor with extra leading zero?
+            for (bt = rl == bl ? b : bz; rl;) {
+              if (r[--rl] < bt[rl]) {
+                ri = rl;
+                for (; ri && !r[--ri];) r[ri] = 9;
+                --r[ri];
+                r[rl] += 10;
+              }
+              r[rl] -= bt[rl];
+            }
+
+            for (; !r[0];) r.shift();
+          } else {
+            break;
+          }
+        }
+
+        // Add the digit n to the result array.
+        qc[qi++] = cmp ? n : ++n;
+
+        // Update the remainder.
+        if (r[0] && cmp) r[rl] = a[ai] || 0;
+        else r = [a[ai]];
+
+      } while ((ai++ < al || r[0] !== UNDEFINED) && k--);
+
+      // Leading zero? Do not remove if result is simply zero (qi == 1).
+      if (!qc[0] && qi != 1) {
+
+        // There can't be more than one zero.
+        qc.shift();
+        q.e--;
+        p--;
+      }
+
+      // Round?
+      if (qi > p) round(q, p, Big.RM, r[0] !== UNDEFINED);
+
+      return q;
+    };
+
+
+    /*
+     * Return true if the value of this Big is equal to the value of Big y, otherwise return false.
+     */
+    P.eq = function (y) {
+      return this.cmp(y) === 0;
+    };
+
+
+    /*
+     * Return true if the value of this Big is greater than the value of Big y, otherwise return
+     * false.
+     */
+    P.gt = function (y) {
+      return this.cmp(y) > 0;
+    };
+
+
+    /*
+     * Return true if the value of this Big is greater than or equal to the value of Big y, otherwise
+     * return false.
+     */
+    P.gte = function (y) {
+      return this.cmp(y) > -1;
+    };
+
+
+    /*
+     * Return true if the value of this Big is less than the value of Big y, otherwise return false.
+     */
+    P.lt = function (y) {
+      return this.cmp(y) < 0;
+    };
+
+
+    /*
+     * Return true if the value of this Big is less than or equal to the value of Big y, otherwise
+     * return false.
+     */
+    P.lte = function (y) {
+      return this.cmp(y) < 1;
+    };
+
+
+    /*
+     * Return a new Big whose value is the value of this Big minus the value of Big y.
+     */
+    P.minus = P.sub = function (y) {
+      var i, j, t, xlty,
+        x = this,
+        Big = x.constructor,
+        a = x.s,
+        b = (y = new Big(y)).s;
+
+      // Signs differ?
+      if (a != b) {
+        y.s = -b;
+        return x.plus(y);
+      }
+
+      var xc = x.c.slice(),
+        xe = x.e,
+        yc = y.c,
+        ye = y.e;
+
+      // Either zero?
+      if (!xc[0] || !yc[0]) {
+        if (yc[0]) {
+          y.s = -b;
+        } else if (xc[0]) {
+          y = new Big(x);
+        } else {
+          y.s = 1;
+        }
+        return y;
+      }
+
+      // Determine which is the bigger number. Prepend zeros to equalise exponents.
+      if (a = xe - ye) {
+
+        if (xlty = a < 0) {
+          a = -a;
+          t = xc;
+        } else {
+          ye = xe;
+          t = yc;
+        }
+
+        t.reverse();
+        for (b = a; b--;) t.push(0);
+        t.reverse();
+      } else {
+
+        // Exponents equal. Check digit by digit.
+        j = ((xlty = xc.length < yc.length) ? xc : yc).length;
+
+        for (a = b = 0; b < j; b++) {
+          if (xc[b] != yc[b]) {
+            xlty = xc[b] < yc[b];
+            break;
+          }
+        }
+      }
+
+      // x < y? Point xc to the array of the bigger number.
+      if (xlty) {
+        t = xc;
+        xc = yc;
+        yc = t;
+        y.s = -y.s;
+      }
+
+      /*
+       * Append zeros to xc if shorter. No need to add zeros to yc if shorter as subtraction only
+       * needs to start at yc.length.
+       */
+      if ((b = (j = yc.length) - (i = xc.length)) > 0) for (; b--;) xc[i++] = 0;
+
+      // Subtract yc from xc.
+      for (b = i; j > a;) {
+        if (xc[--j] < yc[j]) {
+          for (i = j; i && !xc[--i];) xc[i] = 9;
+          --xc[i];
+          xc[j] += 10;
+        }
+
+        xc[j] -= yc[j];
+      }
+
+      // Remove trailing zeros.
+      for (; xc[--b] === 0;) xc.pop();
+
+      // Remove leading zeros and adjust exponent accordingly.
+      for (; xc[0] === 0;) {
+        xc.shift();
+        --ye;
+      }
+
+      if (!xc[0]) {
+
+        // n - n = +0
+        y.s = 1;
+
+        // Result must be zero.
+        xc = [ye = 0];
+      }
+
+      y.c = xc;
+      y.e = ye;
+
+      return y;
+    };
+
+
+    /*
+     * Return a new Big whose value is the value of this Big modulo the value of Big y.
+     */
+    P.mod = function (y) {
+      var ygtx,
+        x = this,
+        Big = x.constructor,
+        a = x.s,
+        b = (y = new Big(y)).s;
+
+      if (!y.c[0]) {
+        throw Error(DIV_BY_ZERO);
+      }
+
+      x.s = y.s = 1;
+      ygtx = y.cmp(x) == 1;
+      x.s = a;
+      y.s = b;
+
+      if (ygtx) return new Big(x);
+
+      a = Big.DP;
+      b = Big.RM;
+      Big.DP = Big.RM = 0;
+      x = x.div(y);
+      Big.DP = a;
+      Big.RM = b;
+
+      return this.minus(x.times(y));
+    };
+
+
+    /*
+     * Return a new Big whose value is the value of this Big negated.
+     */
+    P.neg = function () {
+      var x = new this.constructor(this);
+      x.s = -x.s;
+      return x;
+    };
+
+
+    /*
+     * Return a new Big whose value is the value of this Big plus the value of Big y.
+     */
+    P.plus = P.add = function (y) {
+      var e, k, t,
+        x = this,
+        Big = x.constructor;
+
+      y = new Big(y);
+
+      // Signs differ?
+      if (x.s != y.s) {
+        y.s = -y.s;
+        return x.minus(y);
+      }
+
+      var xe = x.e,
+        xc = x.c,
+        ye = y.e,
+        yc = y.c;
+
+      // Either zero?
+      if (!xc[0] || !yc[0]) {
+        if (!yc[0]) {
+          if (xc[0]) {
+            y = new Big(x);
+          } else {
+            y.s = x.s;
+          }
+        }
+        return y;
+      }
+
+      xc = xc.slice();
+
+      // Prepend zeros to equalise exponents.
+      // Note: reverse faster than unshifts.
+      if (e = xe - ye) {
+        if (e > 0) {
+          ye = xe;
+          t = yc;
+        } else {
+          e = -e;
+          t = xc;
+        }
+
+        t.reverse();
+        for (; e--;) t.push(0);
+        t.reverse();
+      }
+
+      // Point xc to the longer array.
+      if (xc.length - yc.length < 0) {
+        t = yc;
+        yc = xc;
+        xc = t;
+      }
+
+      e = yc.length;
+
+      // Only start adding at yc.length - 1 as the further digits of xc can be left as they are.
+      for (k = 0; e; xc[e] %= 10) k = (xc[--e] = xc[e] + yc[e] + k) / 10 | 0;
+
+      // No need to check for zero, as +x + +y != 0 && -x + -y != 0
+
+      if (k) {
+        xc.unshift(k);
+        ++ye;
+      }
+
+      // Remove trailing zeros.
+      for (e = xc.length; xc[--e] === 0;) xc.pop();
+
+      y.c = xc;
+      y.e = ye;
+
+      return y;
+    };
+
+
+    /*
+     * Return a Big whose value is the value of this Big raised to the power n.
+     * If n is negative, round to a maximum of Big.DP decimal places using rounding
+     * mode Big.RM.
+     *
+     * n {number} Integer, -MAX_POWER to MAX_POWER inclusive.
+     */
+    P.pow = function (n) {
+      var x = this,
+        one = new x.constructor('1'),
+        y = one,
+        isneg = n < 0;
+
+      if (n !== ~~n || n < -MAX_POWER || n > MAX_POWER) {
+        throw Error(INVALID + 'exponent');
+      }
+
+      if (isneg) n = -n;
+
+      for (; ;) {
+        if (n & 1) y = y.times(x);
+        n >>= 1;
+        if (!n) break;
+        x = x.times(x);
+      }
+
+      return isneg ? one.div(y) : y;
+    };
+
+
+    /*
+     * Return a new Big whose value is the value of this Big rounded to a maximum precision of sd
+     * significant digits using rounding mode rm, or Big.RM if rm is not specified.
+     *
+     * sd {number} Significant digits: integer, 1 to MAX_DP inclusive.
+     * rm? {number} Rounding mode: 0 (down), 1 (half-up), 2 (half-even) or 3 (up).
+     */
+    P.prec = function (sd, rm) {
+      if (sd !== ~~sd || sd < 1 || sd > MAX_DP) {
+        throw Error(INVALID + 'precision');
+      }
+      return round(new this.constructor(this), sd, rm);
+    };
+
+
+    /*
+     * Return a new Big whose value is the value of this Big rounded to a maximum of dp decimal places
+     * using rounding mode rm, or Big.RM if rm is not specified.
+     * If dp is negative, round to an integer which is a multiple of 10**-dp.
+     * If dp is not specified, round to 0 decimal places.
+     *
+     * dp? {number} Integer, -MAX_DP to MAX_DP inclusive.
+     * rm? {number} Rounding mode: 0 (down), 1 (half-up), 2 (half-even) or 3 (up).
+     */
+    P.round = function (dp, rm) {
+      if (dp === UNDEFINED) dp = 0;
+      else if (dp !== ~~dp || dp < -MAX_DP || dp > MAX_DP) {
+        throw Error(INVALID_DP);
+      }
+      return round(new this.constructor(this), dp + this.e + 1, rm);
+    };
+
+
+    /*
+     * Return a new Big whose value is the square root of the value of this Big, rounded, if
+     * necessary, to a maximum of Big.DP decimal places using rounding mode Big.RM.
+     */
+    P.sqrt = function () {
+      var r, c, t,
+        x = this,
+        Big = x.constructor,
+        s = x.s,
+        e = x.e,
+        half = new Big('0.5');
+
+      // Zero?
+      if (!x.c[0]) return new Big(x);
+
+      // Negative?
+      if (s < 0) {
+        throw Error(NAME + 'No square root');
+      }
+
+      // Estimate.
+      s = Math.sqrt(+stringify(x, true, true));
+
+      // Math.sqrt underflow/overflow?
+      // Re-estimate: pass x coefficient to Math.sqrt as integer, then adjust the result exponent.
+      if (s === 0 || s === 1 / 0) {
+        c = x.c.join('');
+        if (!(c.length + e & 1)) c += '0';
+        s = Math.sqrt(c);
+        e = ((e + 1) / 2 | 0) - (e < 0 || e & 1);
+        r = new Big((s == 1 / 0 ? '5e' : (s = s.toExponential()).slice(0, s.indexOf('e') + 1)) + e);
+      } else {
+        r = new Big(s + '');
+      }
+
+      e = r.e + (Big.DP += 4);
+
+      // Newton-Raphson iteration.
+      do {
+        t = r;
+        r = half.times(t.plus(x.div(t)));
+      } while (t.c.slice(0, e).join('') !== r.c.slice(0, e).join(''));
+
+      return round(r, (Big.DP -= 4) + r.e + 1, Big.RM);
+    };
+
+
+    /*
+     * Return a new Big whose value is the value of this Big times the value of Big y.
+     */
+    P.times = P.mul = function (y) {
+      var c,
+        x = this,
+        Big = x.constructor,
+        xc = x.c,
+        yc = (y = new Big(y)).c,
+        a = xc.length,
+        b = yc.length,
+        i = x.e,
+        j = y.e;
+
+      // Determine sign of result.
+      y.s = x.s == y.s ? 1 : -1;
+
+      // Return signed 0 if either 0.
+      if (!xc[0] || !yc[0]) {
+        y.c = [y.e = 0];
+        return y;
+      }
+
+      // Initialise exponent of result as x.e + y.e.
+      y.e = i + j;
+
+      // If array xc has fewer digits than yc, swap xc and yc, and lengths.
+      if (a < b) {
+        c = xc;
+        xc = yc;
+        yc = c;
+        j = a;
+        a = b;
+        b = j;
+      }
+
+      // Initialise coefficient array of result with zeros.
+      for (c = new Array(j = a + b); j--;) c[j] = 0;
+
+      // Multiply.
+
+      // i is initially xc.length.
+      for (i = b; i--;) {
+        b = 0;
+
+        // a is yc.length.
+        for (j = a + i; j > i;) {
+
+          // Current sum of products at this digit position, plus carry.
+          b = c[j] + yc[i] * xc[j - i - 1] + b;
+          c[j--] = b % 10;
+
+          // carry
+          b = b / 10 | 0;
+        }
+
+        c[j] = b;
+      }
+
+      // Increment result exponent if there is a final carry, otherwise remove leading zero.
+      if (b) ++y.e;
+      else c.shift();
+
+      // Remove trailing zeros.
+      for (i = c.length; !c[--i];) c.pop();
+      y.c = c;
+
+      return y;
+    };
+
+
+    /*
+     * Return a string representing the value of this Big in exponential notation rounded to dp fixed
+     * decimal places using rounding mode rm, or Big.RM if rm is not specified.
+     *
+     * dp? {number} Decimal places: integer, 0 to MAX_DP inclusive.
+     * rm? {number} Rounding mode: 0 (down), 1 (half-up), 2 (half-even) or 3 (up).
+     */
+    P.toExponential = function (dp, rm) {
+      var x = this,
+        n = x.c[0];
+
+      if (dp !== UNDEFINED) {
+        if (dp !== ~~dp || dp < 0 || dp > MAX_DP) {
+          throw Error(INVALID_DP);
+        }
+        x = round(new x.constructor(x), ++dp, rm);
+        for (; x.c.length < dp;) x.c.push(0);
+      }
+
+      return stringify(x, true, !!n);
+    };
+
+
+    /*
+     * Return a string representing the value of this Big in normal notation rounded to dp fixed
+     * decimal places using rounding mode rm, or Big.RM if rm is not specified.
+     *
+     * dp? {number} Decimal places: integer, 0 to MAX_DP inclusive.
+     * rm? {number} Rounding mode: 0 (down), 1 (half-up), 2 (half-even) or 3 (up).
+     *
+     * (-0).toFixed(0) is '0', but (-0.1).toFixed(0) is '-0'.
+     * (-0).toFixed(1) is '0.0', but (-0.01).toFixed(1) is '-0.0'.
+     */
+    P.toFixed = function (dp, rm) {
+      var x = this,
+        n = x.c[0];
+
+      if (dp !== UNDEFINED) {
+        if (dp !== ~~dp || dp < 0 || dp > MAX_DP) {
+          throw Error(INVALID_DP);
+        }
+        x = round(new x.constructor(x), dp + x.e + 1, rm);
+
+        // x.e may have changed if the value is rounded up.
+        for (dp = dp + x.e + 1; x.c.length < dp;) x.c.push(0);
+      }
+
+      return stringify(x, false, !!n);
+    };
+
+
+    /*
+     * Return a string representing the value of this Big.
+     * Return exponential notation if this Big has a positive exponent equal to or greater than
+     * Big.PE, or a negative exponent equal to or less than Big.NE.
+     * Omit the sign for negative zero.
+     */
+    P.toJSON = P.toString = function () {
+      var x = this,
+        Big = x.constructor;
+      return stringify(x, x.e <= Big.NE || x.e >= Big.PE, !!x.c[0]);
+    };
+
+    if (typeof Symbol !== "undefined") {
+      P[Symbol.for('nodejs.util.inspect.custom')] = P.toJSON;
+    }
+
+
+    /*
+     * Return the value of this Big as a primitive number.
+     */
+    P.toNumber = function () {
+      var n = +stringify(this, true, true);
+      if (this.constructor.strict === true && !this.eq(n.toString())) {
+        throw Error(NAME + 'Imprecise conversion');
+      }
+      return n;
+    };
+
+
+    /*
+     * Return a string representing the value of this Big rounded to sd significant digits using
+     * rounding mode rm, or Big.RM if rm is not specified.
+     * Use exponential notation if sd is less than the number of digits necessary to represent
+     * the integer part of the value in normal notation.
+     *
+     * sd {number} Significant digits: integer, 1 to MAX_DP inclusive.
+     * rm? {number} Rounding mode: 0 (down), 1 (half-up), 2 (half-even) or 3 (up).
+     */
+    P.toPrecision = function (sd, rm) {
+      var x = this,
+        Big = x.constructor,
+        n = x.c[0];
+
+      if (sd !== UNDEFINED) {
+        if (sd !== ~~sd || sd < 1 || sd > MAX_DP) {
+          throw Error(INVALID + 'precision');
+        }
+        x = round(new Big(x), sd, rm);
+        for (; x.c.length < sd;) x.c.push(0);
+      }
+
+      return stringify(x, sd <= x.e || x.e <= Big.NE || x.e >= Big.PE, !!n);
+    };
+
+
+    /*
+     * Return a string representing the value of this Big.
+     * Return exponential notation if this Big has a positive exponent equal to or greater than
+     * Big.PE, or a negative exponent equal to or less than Big.NE.
+     * Include the sign for negative zero.
+     */
+    P.valueOf = function () {
+      var x = this,
+        Big = x.constructor;
+      if (Big.strict === true) {
+        throw Error(NAME + 'valueOf disallowed');
+      }
+      return stringify(x, x.e <= Big.NE || x.e >= Big.PE, true);
+    };
+
+
+    // Export
+
+    /**
+     * @typedef BigNumber
+     * @type {object}
+     * @property {() => string} toString - convert the BigNumber to a string
+     * @property {(other: BigNumber) => BigNumber} plus - Add other to BigNumber
+     * @property {(other: BigNumber) => BigNumber} minus - Subtract other from BigNumber
+     * @property {(other: BigNumber) => BigNumber} times - Multiply BigNumber by other
+     * @property {(other: BigNumber) => BigNumber} div - Divide BigNumber by other
+     */
+
+    /**
+     * BigNumber Constructor 
+     * @constructor
+     * @type {(value: string|number) => BigNumber}
+     */
+    var Big = _Big_();
+
+    var x = Big(0)
+  </script>
+
+  <script> // Utils ======================================================================
+    /**
+     * Format numbers in a human readable way for the current display and tape
+     * @param {BigNumber} num - The number to format
+     * @returns {string} - The formatted number
+     */
+    const numberFormat = (num) => {
+      const numStr = num.toString()
+
+      const hasDecimal = numStr.includes('.')
+      const [integer, decimal] = numStr.split('.')
+
+      const formattedInteger = integer.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
+
+      return hasDecimal ? `${formattedInteger}.${decimal}` : formattedInteger
+    }
+
+    /**
+     * Valid Operation Types
+     * @readonly
+     * @enum {Operation}
+     */
     const OPERATION = {
       ADD: 'ADD',
       SUB: 'SUB',
@@ -324,12 +1413,119 @@
       EQUALS: 'EQUALS',
     }
 
-    const COPY_TAPE_RESULT = {
-      SUCCESS: 'SUCCESS',
-      ERROR: 'ERROR',
-      NONE: 'NONE'
-    }
+    // Tests
+    const runUtilTests = () => {
+      const numberFormat_formatsWholeNumbers = () => {
+        // Given 
+        const expected = "1,234"
 
+        // When
+        const actual = numberFormat(Big("1234"))
+
+        // Then
+        assert(numberFormat_formatsWholeNumbers.name, expected, actual)
+      }
+
+      const numberFormat_formatsDecimals = () => {
+        // Given 
+        const expected = "1,234.56789"
+
+        // When
+        const actual = numberFormat(Big("1234.56789"))
+
+        // Then
+        assert(numberFormat_formatsDecimals.name, expected, actual)
+      }
+
+      const numberFormat_formatsNegativeNumbers = () => {
+        // Given 
+        const expected = "-1,234.56"
+
+        // When
+        const actual = numberFormat(Big("-1234.56"))
+
+        // Then
+        assert(numberFormat_formatsNegativeNumbers.name, expected, actual)
+      }
+
+      const numberFormat_formatsZero = () => {
+        // Given 
+        const expected = "0"
+
+        // When
+        const actual = numberFormat(Big("0"))
+
+        // Then
+        assert(numberFormat_formatsZero.name, expected, actual)
+      }
+
+      const numberFormat_formatsHangingDecimal = () => {
+        // Given 
+        const expected = "0."
+
+        // When
+        const actual = numberFormat("0.")
+
+        // Then
+        assert(numberFormat_formatsHangingDecimal.name, expected, actual)
+      }
+
+      numberFormat_formatsWholeNumbers()
+      numberFormat_formatsDecimals()
+      numberFormat_formatsNegativeNumbers()
+      numberFormat_formatsZero()
+      numberFormat_formatsHangingDecimal()
+    }
+  </script>
+
+
+  <script> // Store ======================================================================
+    /**
+     * @template TState
+     * @typedef Reducer
+     * @type {Object.<string, (state: TState, action: Action<any>) => TState>}
+     **/
+
+    /**
+     * @template Type, TPayload
+     * @typedef {Object} Action
+     * @property {Type} type - The name of the action
+     * @property {TPayload} payload - The payload associated with the action
+     **/
+
+    /**
+     * @template TState
+     * @callback Subscriber
+     * @param {TState} state
+     * @param {TState} prevState
+     * @returns {void}
+     */
+
+    /**
+     * @template TState
+     * @callback Middleware
+     * @param {Action<string, any>} action
+     * @param {TState} state
+     * @param {(action: Action<string, any>) => void} dispatch
+     * @returns {TState}
+     */
+
+    /**
+     * @template TState
+     * @typedef Store
+     * @property {(action: Action<string, any>) => void} dispatch
+     * @property {() => TState} getState
+     **/
+
+    /**
+     * @template TState
+     * Create a Redux Store
+     * @param {TState} initialState
+     * @param {Reducer<TState>} reducer
+     * @param {Array<Subscriber<TState>>} subscribers
+     * @param {Array<Middleware<TState>>} middleware
+     * @returns {Store<TState>}
+     **/
     const createStore = (initialState, reducer = {}, subscribers = [], middleware = []) => {
       let state = initialState
 
@@ -347,70 +1543,157 @@
         subscribers.forEach(sub => sub(state, prevState))
       }
 
+      // Run for Initial State
+      subscribers.forEach(sub => sub(initialState, initialState))
+
       return {
         dispatch,
         getState,
       }
     }
 
-    // State
-    const initialState = {
-      memory: math.bignumber(0),
-      log: [],
-      current: {
-        num: '',
-        op: OPERATION.INIT
-      },
-      copyTapeResult: COPY_TAPE_RESULT.NONE
-    }
+  </script>
 
+  <script> // Calculator =================================================================
     // Selectors
-    const currentValueSelector = (state) => state.current.num
-    const currentOpSelector = (state) => state.current.op
-    const currentBigNumSelector = (state) => {
-      const currentNumValue = currentValueSelector(state)
-      return currentNumValue ? math.bignumber(currentNumValue) : math.bignumber(0)
-    }
-    const currentValueEmptySelector = (state) => !state.current.num.length
-    const runningTotalSelector = (state) => {
-      const log = logSelector(state)
 
+    /**
+     * Selector
+     * @param {TapeCalcState} state
+     * @returns {string} - The current number
+     **/
+    const selectCurrentValue = (state) => state.current.num
+
+    /**
+     * Selector
+     * @param {TapeCalcState} state
+     * @returns {string} - The current number
+     **/
+    const selectIsCurrentValueZero = (state) => {
+      const currentValue = selectCurrentValue(state)
+      return currentValue === '0' || currentValue === '0.'
+    }
+
+
+    /**
+     * Selector
+     * @param {TapeCalcState} state
+     * @returns {Operation} - The current operation
+     **/
+    const selectCurrentOperation = (state) => state.current.op
+
+    /**
+     * Selector
+     * @param {TapeCalcState} state
+     * @returns {BigNumber} - The current number as a {BigNumber}
+     **/
+    const selectCurrentValueAsBigNumber = (state) => {
+      const currentNumValue = selectCurrentValue(state)
+      return currentNumValue ? Big(currentNumValue) : Big(0)
+    }
+
+    /**
+     * Selector
+     * @param {TapeCalcState} state
+     * @returns {boolean} - Returns true is the current number is empty
+     **/
+    const selectIsCurrentValueEmpty = (state) => !state.current.num.length
+
+    /**
+     * Selector
+     * @param {TapeCalcState} state
+     * @returns {BigNumber} - The running total of the calculator
+     **/
+    const selectRunningTotal = (state) => {
+      /** @type {Array<{op: string, num: BigNumber}>} */
+      const log = selectLog(state)
+
+      var start = Big(0)
       return log.reduce((total, {op, num}) => {
-        return op === OPERATION.ADD ? total.add(num)
-          : op === OPERATION.SUB ? total.subtract(num)
-            : op === OPERATION.MUL ? total.multiply(num)
-              : op === OPERATION.DIV ? total.divide(num)
-                : op === OPERATION.INIT ? math.chain(num)
-                  : op === OPERATION.EQUALS ? math.chain(num)
-                    : math.chain(0)
-      }, math.chain(math.bignumber(0))).done()
+        switch (op) {
+          case OPERATION.ADD:
+            return total.plus(num)
+          case OPERATION.SUB:
+            return total.minus(num)
+          case OPERATION.MUL:
+            return total.times(num)
+          case OPERATION.DIV:
+            return total.div(num)
+          case OPERATION.INIT:
+            return num
+          case OPERATION.EQUALS:
+            return num
+          default:
+            return Big(0)
+        }
+      }, start)
     }
-    const currentDisplayValueSelector = (state) => {
-      const currentValue = currentValueSelector(state)
-      const currentTotal = currentTotalSelector(state)
-      const currentOp = currentOpSelector(state)
 
-      var displayValue = currentValue
+    /**
+     * Selector
+     * @param {TapeCalcState} state
+     * @returns {string} - The current running total display
+     **/
+    const selectRunningTotalDisplayValue = (state) => {
+      const runningTotal = selectRunningTotal(state)
+      return numberFormat(runningTotal)
+    }
+
+    /**
+     * Selector
+     * @param {TapeCalcState} state
+     * @returns {string} - The current value to display
+     **/
+    const selectCurrentDisplayValue = (state) => {
+      const currentValue = selectCurrentValue(state)
+
+      let displayValue = currentValue
       if (displayValue === '') {
-        const runningTotal = runningTotalSelector(state)
+        const runningTotal = selectRunningTotalDisplayValue(state)
         displayValue = runningTotal
       }
 
       return displayValue || '0'
     }
-    const currentDisplayBigNumberSelector = (state) => {
-      const currentDisplayValue = currentDisplayValueSelector(state)
-      return math.bignumber(currentDisplayValue)
+
+    /**
+     * Selector
+     * @param {TapeCalcState} state
+     * @returns {BigNumber} - The current display value as a {BigNumber}
+     **/
+    const selectCurrentDisplayAsBigNumber = (state) => {
+      const currentDisplayValue = selectCurrentDisplayValue(state)
+      return Big(currentDisplayValue)
     }
 
-    const logSelector = (state) => state.log ?? []
-    const isLogClearedSelector = (state) => state.log === null
-    const memoryValueSelector = (state) => state.memory
+    /**
+     * Selector
+     * @param {TapeCalcState} state
+     * @returns {Array<CalculatorLogItem>} - The log of items in the tape
+     **/
+    const selectLog = (state) => state.log ?? []
 
-    const currentTotalSelector = (state) => state.log?.findLast(item => item.op === OPERATION.EQUALS)?.num
+    /**
+     * Selector
+     * @param {TapeCalcState} state
+     * @returns {boolean} - true if the las log action was clearing it
+     **/
+    const selectIsLogCleared = (state) => state.log === null
 
-    const tapeContentSelector = (state) => {
-      const log = logSelector(state)
+    /**
+     * Selector
+     * @param {TapeCalcState} state
+     * @returns {?BigNumber} - the last total operation value
+     **/
+    const selectCurrentTotal = (state) => state.log?.findLast(item => item.op === OPERATION.EQUALS)?.num || null
+
+    /**
+     * Selector
+     * @param {TapeCalcState} state
+     * @returns {string} - the tape content formatted to display or copy
+     **/
+    const selectTapeContent = (state) => {
+      const log = selectLog(state)
 
       if (!log.length) return ""
 
@@ -419,6 +1702,7 @@
       }
 
       const text = log.map(({op, num}) => {
+
         switch (op) {
           case OPERATION.ADD:
             return formatLine(num, '+')
@@ -447,11 +1731,22 @@
     }
 
     // Reducers
+
+    /** 
+     * Handle Decimal Action
+     * @param {TapeCalcState} state
+     * @param {DecimalAction} action
+     * @returns {TapeCalcState}
+     **/
     const handleDecimal = (state, action) => {
-      const currentNum = currentValueSelector(state)
+      let currentNum = selectCurrentValue(state)
 
       if (currentNum.includes('.')) {
         return state
+      }
+
+      if (!currentNum.length) {
+        currentNum = '0'
       }
 
       return {
@@ -463,10 +1758,17 @@
       }
     }
 
+    /** 
+     * Handle Converting Between Positive and Negative Number
+     * @param {TapeCalcState} state
+     * @param {InvertAction} action
+     * @returns {TapeCalcState}
+     **/
     const handleInvert = (state, action) => {
-      const currentNum = currentValueSelector(state)
+      const currentNum = selectCurrentValue(state)
+      const isCurrentNumZero = selectIsCurrentValueZero(state)
 
-      if (!currentNum.length) return state
+      if (!currentNum.length || isCurrentNumZero) return state
 
       const newCurrentNum = currentNum[0] === '-' ? currentNum.substring(1) : `-${currentNum}`
 
@@ -479,8 +1781,14 @@
       }
     }
 
+    /** 
+     * Handle Adding a Number to the Current Value
+     * @param {TapeCalcState} state
+     * @param {AppendNumberAction} action
+     * @returns {TapeCalcState}
+     **/
     const handleAppendNumber = (state, {payload: {num}}) => {
-      const currentNum = currentValueSelector(state)
+      const currentNum = selectCurrentValue(state)
       const isAppendingZero = num.toString() === '0'
       const isCurrentNumZero = currentNum.toString() === '0'
 
@@ -502,8 +1810,14 @@
       }
     }
 
+    /** 
+     * Handle Adding Double Zero
+     * @param {TapeCalcState} state
+     * @param {DoubleZeroAction} action
+     * @returns {TapeCalcState}
+     **/
     const handleDoubleZero = (state, action) => {
-      const currentNum = currentValueSelector(state)
+      const currentNum = selectCurrentValue(state)
       const isCurrentNumZero = currentNum.toString() === '0'
 
       let newNum = currentNum + '00'
@@ -522,8 +1836,14 @@
       }
     }
 
+    /** 
+     * Handle Adding Triple Zero
+     * @param {TapeCalcState} state
+     * @param {TripleZeroAction} action
+     * @returns {TapeCalcState}
+     **/
     const handleTripleZero = (state, action) => {
-      const currentNum = currentValueSelector(state)
+      const currentNum = selectCurrentValue(state)
       const isCurrentNumZero = currentNum.toString() === '0'
 
       let newNum = currentNum + '000'
@@ -542,11 +1862,17 @@
       }
     }
 
+    /** 
+     * Handle Appending a new Operation
+     * @param {TapeCalcState} state
+     * @param {AppendOperationAction} action
+     * @returns {TapeCalcState}
+     **/
     const handleAppendOperation = (state, {payload: {op}}) => {
-      const log = logSelector(state)
-      const currentValue = currentValueSelector(state)
-      const currentNum = currentBigNumSelector(state)
-      const currentOp = currentOpSelector(state)
+      const log = selectLog(state)
+      const currentValue = selectCurrentValue(state)
+      const currentNum = selectCurrentValueAsBigNumber(state)
+      const currentOp = selectCurrentOperation(state)
 
       if (currentValue === '' && log.length) {
         return {
@@ -571,23 +1897,28 @@
           }
         }
       }
-
     }
 
+    /** 
+     * Handle Equals Operation
+     * @param {TapeCalcState} state
+     * @param {EqualsAction} action
+     * @returns {TapeCalcState}
+     **/
     const handleEquals = (state, action) => {
-      const log = logSelector(state)
-      const currentValue = currentValueSelector(state)
-      const currentOp = currentOpSelector(state)
+      const log = selectLog(state)
+      const currentValue = selectCurrentValue(state)
+      const currentOp = selectCurrentOperation(state)
 
       let newLog = [...log]
       if (currentValue !== '' && currentOp) {
-        const currentNum = currentBigNumSelector(state)
+        const currentNum = selectCurrentValueAsBigNumber(state)
 
         newLog = log.length
           ? [...log, {num: currentNum, op: currentOp}]
           : [{num: currentNum, op: OPERATION.INIT}]
       } else if (!newLog.length) {
-        const currentNum = currentBigNumSelector(state)
+        const currentNum = selectCurrentValueAsBigNumber(state)
         newLog = [{num: currentNum, op: OPERATION.INIT}]
       }
 
@@ -596,7 +1927,7 @@
         log: newLog,
       }
 
-      const total = runningTotalSelector(intermediateState)
+      const total = selectRunningTotal(intermediateState)
 
       newLog = [...newLog, {num: total, op: OPERATION.EQUALS}]
 
@@ -610,8 +1941,14 @@
       }
     }
 
+    /** 
+     * Handle Removing a Digit
+     * @param {TapeCalcState} state
+     * @param {BackspaceAction} action
+     * @returns {TapeCalcState}
+     **/
     const handleBackspace = (state, action) => {
-      const currentNum = currentValueSelector(state)
+      const currentNum = selectCurrentValue(state)
 
       return {
         ...state,
@@ -622,6 +1959,12 @@
       }
     }
 
+    /** 
+     * Handle Clearing the Current Value
+     * @param {TapeCalcState} state
+     * @param {ClearEntryAction} action
+     * @returns {TapeCalcState}
+     **/
     const handleClearEntry = (state, action) => {
       return {
         ...state,
@@ -632,8 +1975,14 @@
       }
     }
 
+    /** 
+     * Handle Clearing the Tape
+     * @param {TapeCalcState} state
+     * @param {ClearTapeAction} action
+     * @returns {TapeCalcState}
+     **/
     const handleClearTape = (state, action) => {
-      const current = currentDisplayValueSelector(state)
+      const current = selectCurrentDisplayValue(state)
 
       return {
         ...state,
@@ -645,6 +1994,12 @@
       }
     }
 
+    /** 
+     * Handle Clearing the Tape and Current Value
+     * @param {TapeCalcState} state
+     * @param {ClearAllAction} action
+     * @returns {TapeCalcState}
+     **/
     const handleClearAll = (state, action) => {
       return {
         ...state,
@@ -656,35 +2011,1428 @@
       }
     }
 
+    // Actions
+    const CALC_ACTION = {
+      APPEND_NUMBER: "appendNumber",
+      APPEND_OPERATION: "appendOperation",
+      DECIMAL: "decimal",
+      INVERT: "invert",
+      DOUBLE_ZERO: "doubleZero",
+      TRIPLE_ZERO: "tripleZero",
+      EQUALS: "equals",
+      BACKSPACE: "backspace",
+      CLEAR_ENTRY: "clearEntry",
+      CLEAR_TAPE: "clearTape",
+      CLEAR_ALL: "clearAll",
+    }
+
+    /** @typedef {Action<"appendNumber", {num: string}>} AppendNumberAction */
+    /** Action Creator
+     * @param {string} num 
+     * @returns {AppendNumberAction}
+     **/
+    const appendNumberAction = (num) => ({type: CALC_ACTION.APPEND_NUMBER, payload: {num}})
+    /** @typedef {Action<"appendOperation", {op: Operation}>} AppendOperationAction */
+    /** Action Creator
+     * @param {Operation} op 
+     * @returns {AppendOperationAction}
+     **/
+    const appendOperationAction = (op) => ({type: CALC_ACTION.APPEND_OPERATION, payload: {op}})
+    /** @typedef {Action<"decimal", undefined>} DecimalAction */
+    /** Action Creator
+     * @returns {DecimalAction}
+     **/
+    const decimalAction = () => ({type: CALC_ACTION.DECIMAL})
+    /** @typedef {Action<"invert", undefined>} InvertAction */
+    /** Action Creator
+     * @returns {InvertAction}
+     **/
+    const invertAction = () => ({type: CALC_ACTION.INVERT})
+    /** @typedef {Action<"doubleZero", undefined>} DoubleZeroAction */
+    /** Action Creator
+     * @returns {DoubleZeroAction}
+     **/
+    const doubleZeroAction = () => ({type: CALC_ACTION.DOUBLE_ZERO})
+    /** @typedef {Action<"tripleZero", undefined>} TripleZeroAction */
+    /** Action Creator
+     * @returns {TripleZeroAction}
+     **/
+    const tripleZeroAction = () => ({type: CALC_ACTION.TRIPLE_ZERO})
+    /** @typedef {Action<"equals", undefined>} EqualsAction */
+    /** Action Creator
+     * @returns {EqualsAction}
+     **/
+    const equalsAction = () => ({type: CALC_ACTION.EQUALS})
+    /** @typedef {Action<"backspace", undefined>} BackspaceAction */
+    /** Action Creator
+     * @returns {BackspaceAction}
+     **/
+    const backspaceAction = () => ({type: CALC_ACTION.BACKSPACE})
+    /** @typedef {Action<"clearEntry", undefined>} ClearEntryAction */
+    /** Action Creator
+     * @returns {ClearEntryAction}
+     **/
+    const clearEntryAction = () => ({type: CALC_ACTION.CLEAR_ENTRY})
+    /** @typedef {Action<"clearTape", undefined>} ClearTapeAction */
+    /** Action Creator
+     * @returns {ClearTapeAction}
+     **/
+    const clearTapeAction = () => ({type: CALC_ACTION.CLEAR_TAPE})
+    /** @typedef {Action<"clearAll", undefined>} ClearAllAction */
+    /** Action Creator
+     * @returns {ClearAllAction}
+     **/
+    const clearAllAction = () => ({type: CALC_ACTION.CLEAR_ALL})
+
+    // Tests
+    const runCalulatorTests = () => {
+      const baseTestState = {
+        memory: Big(100),
+        log: [],
+        current: {
+          num: '10',
+          op: OPERATION.INIT
+        },
+        copyTapeResult: COPY_TAPE_RESULT.NONE
+      }
+
+      // Selector Tests
+      const selectCurrentValue_returnsCurrentValue = () => {
+        // Given
+        const expected = '10'
+
+        // When
+        const actual = selectCurrentValue(baseTestState)
+
+        // Then
+        assert(selectCurrentValue_returnsCurrentValue.name, expected, actual)
+      }
+
+      selectCurrentValue_returnsCurrentValue()
+
+      const selectIsCurrentValueZero_returnsFalseWhenNonZero = () => {
+        // Given
+        const expected = false
+
+        // When
+        const actual = selectIsCurrentValueZero(baseTestState)
+
+        // Then
+        assert(selectIsCurrentValueZero_returnsFalseWhenNonZero.name, expected, actual)
+      }
+
+      const selectIsCurrentValueZero_returnsTrueWhenZero = () => {
+        // Given
+        const testState = {
+          ...baseTestState, current: {...baseTestState.current, op: OPERATION.INIT, num: '0'}
+        }
+        const expected = true
+
+        // When
+        const actual = selectIsCurrentValueZero(testState)
+
+        // Then
+        assert(selectIsCurrentValueZero_returnsTrueWhenZero.name, expected, actual)
+      }
+
+      const selectIsCurrentValueZero_returnsTrueWhenEmptyDecimal = () => {
+        // Given
+        const testState = {
+          ...baseTestState, current: {...baseTestState.current, op: OPERATION.INIT, num: '0.'}
+        }
+        const expected = true
+
+        // When
+        const actual = selectIsCurrentValueZero(testState)
+
+        // Then
+        assert(selectIsCurrentValueZero_returnsTrueWhenEmptyDecimal.name, expected, actual)
+      }
+
+      selectIsCurrentValueZero_returnsFalseWhenNonZero()
+      selectIsCurrentValueZero_returnsTrueWhenZero()
+      selectIsCurrentValueZero_returnsTrueWhenEmptyDecimal()
+
+      const selectCurrentOperation_returnsCurrentOperation = () => {
+        // Given
+        const testState = {...baseTestState, current: {...baseTestState.current, op: OPERATION.MUL}}
+        const expected = OPERATION.MUL
+
+        // When
+        const actual = selectCurrentOperation(testState)
+
+        // Then
+        assert(selectCurrentOperation_returnsCurrentOperation.name, expected, actual)
+      }
+
+      selectCurrentOperation_returnsCurrentOperation()
+
+      const selectCurrentValueAsBigNumber_returnsCurrentValueAsBigNumber = () => {
+        // Given
+        const expected = Big('10')
+
+        // When
+        const actual = selectCurrentValueAsBigNumber(baseTestState)
+
+        // Then
+        assert(selectCurrentValueAsBigNumber_returnsCurrentValueAsBigNumber.name, expected, actual)
+      }
+
+      selectCurrentValueAsBigNumber_returnsCurrentValueAsBigNumber()
+
+      const selectIsCurrentValueEmpty_returnsTrueIfValueEmpty = () => {
+        // Given
+        const testState = {...baseTestState, current: {...baseTestState.current, num: ''}}
+        const expected = true
+
+        // When
+        const actual = selectIsCurrentValueEmpty(testState)
+
+        // Then
+        assert(selectIsCurrentValueEmpty_returnsTrueIfValueEmpty.name, expected, actual)
+      }
+
+      const selectIsCurrentValueEmpty_returnsFalseIfValuePresent = () => {
+        // Given
+        const expected = false
+
+        // When
+        const actual = selectIsCurrentValueEmpty(baseTestState)
+
+        // Then
+        assert(selectIsCurrentValueEmpty_returnsFalseIfValuePresent.name, expected, actual)
+      }
+
+      selectIsCurrentValueEmpty_returnsTrueIfValueEmpty()
+      selectIsCurrentValueEmpty_returnsFalseIfValuePresent()
+
+      const selectRunningTotal_returnsZeroIfEmptyLog = () => {
+        // Given
+        const expected = Big(0)
+
+        // When
+        const actual = selectRunningTotal(baseTestState)
+
+        // Then
+        assert(selectRunningTotal_returnsZeroIfEmptyLog.name, expected, actual)
+      }
+
+      const selectRunningTotal_returnsTotalIfLogPresent = () => {
+        // Given
+        const testState = {
+          ...baseTestState,
+          log: [
+            {op: OPERATION.INIT, num: Big(10)},
+            {op: OPERATION.DIV, num: Big(2)},
+            {op: OPERATION.ADD, num: Big(1)},
+            {op: OPERATION.SUB, num: Big(0)},
+            {op: OPERATION.MUL, num: Big(8)},
+          ],
+        }
+        const expected = Big(48)
+
+        // When
+        const actual = selectRunningTotal(testState)
+
+        // Then
+        assert(selectRunningTotal_returnsTotalIfLogPresent.name, expected, actual)
+      }
+
+      const selectRunningTotal_returnsTotalRespectingMiddleEquals = () => {
+        // Given
+        const testState = {
+          ...baseTestState,
+          log: [
+            {op: OPERATION.INIT, num: Big(10)},
+            {op: OPERATION.DIV, num: Big(2)},
+            {op: OPERATION.EQUALS, num: Big(5)},
+            {op: OPERATION.SUB, num: Big(0)},
+            {op: OPERATION.MUL, num: Big(8)},
+          ],
+        }
+        const expected = Big(40)
+
+        // When
+        const actual = selectRunningTotal(testState)
+
+        // Then
+        assert(selectRunningTotal_returnsTotalRespectingMiddleEquals.name, expected, actual)
+      }
+
+      const selectRunningTotal_returnsTotalRespectingMiddleInit = () => {
+        // Given
+        const testState = {
+          ...baseTestState,
+          log: [
+            {op: OPERATION.INIT, num: Big(10)},
+            {op: OPERATION.DIV, num: Big(2)},
+            {op: OPERATION.EQUALS, num: Big(5)},
+            {op: OPERATION.INIT, num: Big(10)},
+            {op: OPERATION.SUB, num: Big(0)},
+            {op: OPERATION.MUL, num: Big(8)},
+          ],
+        }
+        const expected = Big(80)
+
+        // When
+        const actual = selectRunningTotal(testState)
+
+        // Then
+        assert(selectRunningTotal_returnsTotalRespectingMiddleInit.name, expected, actual)
+      }
+
+      selectRunningTotal_returnsZeroIfEmptyLog()
+      selectRunningTotal_returnsTotalIfLogPresent()
+      selectRunningTotal_returnsTotalRespectingMiddleEquals()
+      selectRunningTotal_returnsTotalRespectingMiddleInit()
+
+
+      const selectRunningTotalDisplayValue_returnsZeroIfEmptyLog = () => {
+        // Given
+        const expected = '0'
+
+        // When
+        const actual = selectRunningTotalDisplayValue(baseTestState)
+
+        // Then
+        assert(selectRunningTotalDisplayValue_returnsZeroIfEmptyLog.name, expected, actual)
+      }
+
+      const selectRunningTotalDisplayValue_returnsTotalIfLogPresent = () => {
+        // Given
+        const testState = {
+          ...baseTestState,
+          log: [
+            {op: OPERATION.INIT, num: Big(10)},
+            {op: OPERATION.DIV, num: Big(2)},
+            {op: OPERATION.ADD, num: Big(1)},
+            {op: OPERATION.SUB, num: Big(0)},
+            {op: OPERATION.MUL, num: Big(8)},
+          ],
+        }
+        const expected = '48'
+
+        // When
+        const actual = selectRunningTotalDisplayValue(testState)
+
+        // Then
+        assert(selectRunningTotalDisplayValue_returnsTotalIfLogPresent.name, expected, actual)
+      }
+
+      const selectRunningTotalDisplayValue_returnsTotalRespectingMiddleEquals = () => {
+        // Given
+        const testState = {
+          ...baseTestState,
+          log: [
+            {op: OPERATION.INIT, num: Big(10)},
+            {op: OPERATION.DIV, num: Big(2)},
+            {op: OPERATION.EQUALS, num: Big(5)},
+            {op: OPERATION.SUB, num: Big(0)},
+            {op: OPERATION.MUL, num: Big(8)},
+          ],
+        }
+        const expected = '40'
+
+        // When
+        const actual = selectRunningTotalDisplayValue(testState)
+
+        // Then
+        assert(selectRunningTotalDisplayValue_returnsTotalRespectingMiddleEquals.name, expected, actual)
+      }
+
+      const selectRunningTotalDisplayValue_returnsTotalRespectingMiddleInit = () => {
+        // Given
+        const testState = {
+          ...baseTestState,
+          log: [
+            {op: OPERATION.INIT, num: Big(10)},
+            {op: OPERATION.DIV, num: Big(2)},
+            {op: OPERATION.EQUALS, num: Big(5)},
+            {op: OPERATION.INIT, num: Big(10)},
+            {op: OPERATION.SUB, num: Big(0)},
+            {op: OPERATION.MUL, num: Big(8)},
+          ],
+        }
+        const expected = '80'
+
+        // When
+        const actual = selectRunningTotalDisplayValue(testState)
+
+        // Then
+        assert(selectRunningTotalDisplayValue_returnsTotalRespectingMiddleInit.name, expected, actual)
+      }
+
+      selectRunningTotalDisplayValue_returnsZeroIfEmptyLog()
+      selectRunningTotalDisplayValue_returnsTotalIfLogPresent()
+      selectRunningTotalDisplayValue_returnsTotalRespectingMiddleEquals()
+      selectRunningTotalDisplayValue_returnsTotalRespectingMiddleInit()
+
+      const selectCurrentDisplayValue_returnsCurrentValueIfPresent = () => {
+        // Given
+        const expected = '10'
+
+        // When
+        const actual = selectCurrentDisplayValue(baseTestState)
+
+        // Then
+        assert(selectCurrentDisplayValue_returnsCurrentValueIfPresent.name, expected, actual)
+      }
+
+      const selectCurrentDisplayValue_returnsRunningTotalIfCurrentValueEmpty = () => {
+        // Given
+        const testState = {
+          ...baseTestState,
+          log: [
+            {op: OPERATION.INIT, num: Big(10)},
+            {op: OPERATION.DIV, num: Big(2)},
+            {op: OPERATION.ADD, num: Big(1)},
+          ],
+          current: {op: OPERATION.INIT, num: ''}
+        }
+        const expected = '6'
+
+        // When
+        const actual = selectCurrentDisplayValue(testState)
+
+        // Then
+        assert(selectCurrentDisplayValue_returnsRunningTotalIfCurrentValueEmpty.name, expected, actual)
+      }
+
+      selectCurrentDisplayValue_returnsCurrentValueIfPresent()
+      selectCurrentDisplayValue_returnsRunningTotalIfCurrentValueEmpty()
+
+      const selectCurrentDisplayAsBigNumber_returnsCurrentValueIfPresent = () => {
+        // Given
+        const expected = Big(10)
+
+        // When
+        const actual = selectCurrentDisplayAsBigNumber(baseTestState)
+
+        // Then
+        assert(selectCurrentDisplayAsBigNumber_returnsCurrentValueIfPresent.name, expected, actual)
+      }
+
+      const selectCurrentDisplayValueAsBigNumber_returnsRunningTotalIfCurrentValueEmpty = () => {
+        // Given
+        const testState = {
+          ...baseTestState,
+          log: [
+            {op: OPERATION.INIT, num: Big(10)},
+            {op: OPERATION.DIV, num: Big(2)},
+            {op: OPERATION.ADD, num: Big(1)},
+          ],
+          current: {op: OPERATION.INIT, num: ''}
+        }
+        const expected = Big(6)
+
+        // When
+        const actual = selectCurrentDisplayAsBigNumber(testState)
+
+        // Then
+        assert(selectCurrentDisplayValueAsBigNumber_returnsRunningTotalIfCurrentValueEmpty.name, expected, actual)
+      }
+
+      selectCurrentDisplayAsBigNumber_returnsCurrentValueIfPresent()
+      selectCurrentDisplayValueAsBigNumber_returnsRunningTotalIfCurrentValueEmpty()
+
+      const selectLog_returnsEmptyWhenEmpty = () => {
+        // Given
+        const expected = []
+
+        // When
+        const actual = selectLog(baseTestState)
+
+        // Then
+        assert(selectLog_returnsEmptyWhenEmpty.name, expected, actual)
+      }
+
+      const selectLog_returnsEmptyWhenNull = () => {
+        // Given
+        const testState = {...baseTestState, log: null}
+        const expected = []
+
+        // When
+        const actual = selectLog(testState)
+
+        // Then
+        assert(selectLog_returnsEmptyWhenNull.name, expected, actual)
+      }
+
+      const selectLog_returnsLogWhenPresent = () => {
+        // Given
+        const testState = {
+          ...baseTestState,
+          log: [
+            {op: OPERATION.INIT, num: Big(10)},
+            {op: OPERATION.DIV, num: Big(2)},
+            {op: OPERATION.ADD, num: Big(1)},
+          ],
+          current: {op: OPERATION.INIT, num: ''}
+        }
+        const expected = [
+          {op: OPERATION.INIT, num: Big(10)},
+          {op: OPERATION.DIV, num: Big(2)},
+          {op: OPERATION.ADD, num: Big(1)},
+        ]
+
+        // When
+        const actual = selectLog(testState)
+
+        // Then
+        assert(selectLog_returnsLogWhenPresent.name, expected, actual)
+      }
+
+      selectLog_returnsEmptyWhenEmpty()
+      selectLog_returnsEmptyWhenNull()
+      selectLog_returnsLogWhenPresent()
+
+      const selectIsLogCleared_returnsFalseWhenNotCleared = () => {
+        // Given
+        const expected = false
+
+        // When
+        const actual = selectIsLogCleared(baseTestState)
+
+        // Then
+        assert(selectIsLogCleared_returnsFalseWhenNotCleared.name, expected, actual)
+      }
+
+      const selectIsLogCleared_returnsTrueWhenCleared = () => {
+        // Given
+        const testState = {...baseTestState, log: null}
+        const expected = true
+
+        // When
+        const actual = selectIsLogCleared(testState)
+
+        // Then
+        assert(selectIsLogCleared_returnsTrueWhenCleared.name, expected, actual)
+      }
+
+      selectIsLogCleared_returnsFalseWhenNotCleared()
+      selectIsLogCleared_returnsTrueWhenCleared()
+
+      const selectCurrentTotal_returnsNullWhenLogIsEmpty = () => {
+        // Given
+        const expected = null
+
+        // When
+        const actual = selectCurrentTotal(baseTestState)
+
+        // Then
+        assert(selectCurrentTotal_returnsNullWhenLogIsEmpty.name, expected, actual)
+      }
+
+      const selectCurrentTotal_returnsNullWhenNoEqualsOperations = () => {
+        // Given
+        const testState = {
+          ...baseTestState,
+          log: [
+            {op: OPERATION.INIT, num: Big(10)},
+            {op: OPERATION.DIV, num: Big(2)},
+            {op: OPERATION.ADD, num: Big(1)},
+          ],
+        }
+        const expected = null
+
+        // When
+        const actual = selectCurrentTotal(testState)
+
+        // Then
+        assert(selectCurrentTotal_returnsNullWhenNoEqualsOperations.name, expected, actual)
+      }
+
+      const selectCurrentTotal_returnsCurrentTotalLastOperation = () => {
+        // Given
+        const testState = {
+          ...baseTestState,
+          log: [
+            {op: OPERATION.INIT, num: Big(10)},
+            {op: OPERATION.DIV, num: Big(2)},
+            {op: OPERATION.ADD, num: Big(1)},
+            {op: OPERATION.EQUALS, num: Big(6)},
+          ],
+        }
+        const expected = Big(6)
+
+        // When
+        const actual = selectCurrentTotal(testState)
+
+        // Then
+        assert(selectCurrentTotal_returnsCurrentTotalLastOperation.name, expected, actual)
+      }
+
+      const selectCurrentTotal_returnsCurrentTotalMiddleOperation = () => {
+        // Given
+        const testState = {
+          ...baseTestState,
+          log: [
+            {op: OPERATION.INIT, num: Big(10)},
+            {op: OPERATION.DIV, num: Big(2)},
+            {op: OPERATION.EQUALS, num: Big(5)},
+            {op: OPERATION.ADD, num: Big(1)},
+          ],
+        }
+        const expected = Big(5)
+
+        // When
+        const actual = selectCurrentTotal(testState)
+
+        // Then
+        assert(selectCurrentTotal_returnsCurrentTotalMiddleOperation.name, expected, actual)
+      }
+
+      const selectCurrentTotal_returnsCurrentTotalFromMultipleOperations = () => {
+        // Given
+        const testState = {
+          ...baseTestState,
+          log: [
+            {op: OPERATION.INIT, num: Big(10)},
+            {op: OPERATION.DIV, num: Big(2)},
+            {op: OPERATION.EQUALS, num: Big(5)},
+            {op: OPERATION.ADD, num: Big(1)},
+            {op: OPERATION.EQUALS, num: Big(6)},
+          ],
+        }
+        const expected = Big(6)
+
+        // When
+        const actual = selectCurrentTotal(testState)
+
+        // Then
+        assert(selectCurrentTotal_returnsCurrentTotalFromMultipleOperations.name, expected, actual)
+      }
+
+      selectCurrentTotal_returnsNullWhenLogIsEmpty()
+      selectCurrentTotal_returnsNullWhenNoEqualsOperations()
+      selectCurrentTotal_returnsCurrentTotalLastOperation()
+      selectCurrentTotal_returnsCurrentTotalMiddleOperation()
+      selectCurrentTotal_returnsCurrentTotalFromMultipleOperations()
+
+      const selectTapeContent_returnsEmptyForEmptyLog = () => {
+        // Given
+        const expected = ''
+
+        // When
+        const actual = selectTapeContent(baseTestState)
+
+        // Then
+        assert(selectTapeContent_returnsEmptyForEmptyLog.name, expected, actual)
+      }
+
+      const selectTapeContent_returnsTapeForLog = () => {
+        // Given
+        const testState = {
+          ...baseTestState,
+          log: [
+            {op: OPERATION.INIT, num: Big(9.36)},
+            {op: OPERATION.ADD, num: Big(87)},
+            {op: OPERATION.DIV, num: Big(3)},
+            {op: OPERATION.EQUALS, num: Big(32.12)},
+            {op: OPERATION.ADD, num: Big(2)},
+            {op: OPERATION.EQUALS, num: Big(34.12)},
+            {op: OPERATION.INIT, num: Big(300)},
+            {op: OPERATION.MUL, num: Big(-6)},
+            {op: OPERATION.SUB, num: Big(9)},
+            {op: OPERATION.ADD, num: Big(10)},
+            {op: OPERATION.EQUALS, num: Big(-1799)},
+          ],
+        }
+        const expected = ''
+          + '9.36  \n'
+          + '87 +\n'
+          + '3 ÷\n'
+          + '------------------------------\n'
+          + '32.12 =\n'
+          + '2 +\n'
+          + '------------------------------\n'
+          + '34.12 =\n'
+          + '\n'
+          + '300  \n'
+          + '-6 x\n'
+          + '9 -\n'
+          + '10 +\n'
+          + '------------------------------\n'
+          + '-1,799 ='
+
+        // When
+        const actual = selectTapeContent(testState)
+
+        // Then
+        assert(selectTapeContent_returnsTapeForLog.name, expected, actual)
+      }
+
+      selectTapeContent_returnsEmptyForEmptyLog()
+      selectTapeContent_returnsTapeForLog()
+
+      // Reducer Tests
+      const handleDecimal_addsDecimalIfNonePresent = () => {
+        // Given
+        const testState = baseTestState
+        const expected = {
+          ...baseTestState,
+          current: {...baseTestState.current, num: '10.'}
+        }
+
+        // When
+        const actual = handleDecimal(testState, decimalAction())
+
+        // Then
+        assert(handleDecimal_addsDecimalIfNonePresent.name, expected, actual)
+      }
+
+      const handleDecimal_doesNothingIfDecimalPresent = () => {
+        // Given
+        const testState = {
+          ...baseTestState,
+          current: {...baseTestState.current, num: '10.'}
+        }
+        const expected = {
+          ...baseTestState,
+          current: {...baseTestState.current, num: '10.'}
+        }
+
+        // When
+        const actual = handleDecimal(testState, decimalAction())
+
+        // Then
+        assert(handleDecimal_doesNothingIfDecimalPresent.name, expected, actual)
+      }
+
+      const handleDecimal_updatesCurrentToZeroIfEmpty = () => {
+        // Given
+        const testState = {
+          ...baseTestState,
+          current: {...baseTestState.current, num: ''}
+        }
+        const expected = {
+          ...baseTestState,
+          current: {...baseTestState.current, num: '0.'}
+        }
+
+        // When
+        const actual = handleDecimal(testState, decimalAction())
+
+        // Then
+        assert(handleDecimal_updatesCurrentToZeroIfEmpty.name, expected, actual)
+      }
+
+      handleDecimal_addsDecimalIfNonePresent()
+      handleDecimal_doesNothingIfDecimalPresent()
+      handleDecimal_updatesCurrentToZeroIfEmpty()
+
+      const handleInvert_makesPositiveNumberNegative = () => {
+        // Given
+        const testState = {
+          ...baseTestState,
+          current: {...baseTestState.current, num: '10'}
+        }
+        const expected = {
+          ...baseTestState,
+          current: {...baseTestState.current, num: '-10'}
+        }
+
+        // When
+        const actual = handleInvert(testState, invertAction())
+
+        // Then
+        assert(handleInvert_makesPositiveNumberNegative.name, expected, actual)
+      }
+
+      const handleInvert_makesNegativeNumberPositive = () => {
+        // Given
+        const testState = {
+          ...baseTestState,
+          current: {...baseTestState.current, num: '-10'}
+        }
+        const expected = {
+          ...baseTestState,
+          current: {...baseTestState.current, num: '10'}
+        }
+
+        // When
+        const actual = handleInvert(testState, invertAction())
+
+        // Then
+        assert(handleInvert_makesNegativeNumberPositive.name, expected, actual)
+      }
+
+      const handleInvert_doesNothingIfZero = () => {
+        // Given
+        const testState = {
+          ...baseTestState,
+          current: {...baseTestState.current, num: '0'}
+        }
+        const expected = {
+          ...baseTestState,
+          current: {...baseTestState.current, num: '0'}
+        }
+
+        // When
+        const actual = handleInvert(testState, invertAction())
+
+        // Then
+        assert(handleInvert_doesNothingIfZero.name, expected, actual)
+      }
+
+      handleInvert_makesPositiveNumberNegative()
+      handleInvert_makesNegativeNumberPositive()
+      handleInvert_doesNothingIfZero()
+
+      const handleAppendNumber_appendsNumber = () => {
+        // Given
+        const testState = {
+          ...baseTestState,
+          current: {...baseTestState.current, num: '10'}
+        }
+        const expected = {
+          ...baseTestState,
+          current: {...baseTestState.current, num: '109'}
+        }
+
+        // When
+        const actual = handleAppendNumber(testState, appendNumberAction('9'))
+
+        // Then
+        assert(handleAppendNumber_appendsNumber.name, expected, actual)
+      }
+
+      const handleAppendNumber_appendsZeroWhenEmpty = () => {
+        // Given
+        const testState = {
+          ...baseTestState,
+          current: {...baseTestState.current, num: ''}
+        }
+        const expected = {
+          ...baseTestState,
+          current: {...baseTestState.current, num: '0'}
+        }
+
+        // When
+        const actual = handleAppendNumber(testState, appendNumberAction('0'))
+
+        // Then
+        assert(handleAppendNumber_appendsZeroWhenEmpty.name, expected, actual)
+      }
+
+      const handleAppendNumber_doesNothingWhenAppendingZeroToZero = () => {
+        // Given
+        const testState = {
+          ...baseTestState,
+          current: {...baseTestState.current, num: '0'}
+        }
+        const expected = {
+          ...baseTestState,
+          current: {...baseTestState.current, num: '0'}
+        }
+
+        // When
+        const actual = handleAppendNumber(testState, appendNumberAction('0'))
+
+        // Then
+        assert(handleAppendNumber_doesNothingWhenAppendingZeroToZero.name, expected, actual)
+      }
+
+      const handleAppendNumber_replacesWhenAppendingToZero = () => {
+        // Given
+        const testState = {
+          ...baseTestState,
+          current: {...baseTestState.current, num: '0'}
+        }
+        const expected = {
+          ...baseTestState,
+          current: {...baseTestState.current, num: '8'}
+        }
+
+        // When
+        const actual = handleAppendNumber(testState, appendNumberAction('8'))
+
+        // Then
+        assert(handleAppendNumber_replacesWhenAppendingToZero.name, expected, actual)
+      }
+
+      handleAppendNumber_appendsNumber()
+      handleAppendNumber_appendsZeroWhenEmpty()
+      handleAppendNumber_doesNothingWhenAppendingZeroToZero()
+      handleAppendNumber_replacesWhenAppendingToZero()
+
+      const handleDoubleZero_appendsWhenHasValue = () => {
+        // Given
+        const testState = {
+          ...baseTestState,
+          current: {...baseTestState.current, num: '10'}
+        }
+        const expected = {
+          ...baseTestState,
+          current: {...baseTestState.current, num: '1000'}
+        }
+
+        // When
+        const actual = handleDoubleZero(testState, doubleZeroAction())
+
+        // Then
+        assert(handleDoubleZero_appendsWhenHasValue.name, expected, actual)
+      }
+
+      const handleDoubleZero_setsZeroWhenEmpty = () => {
+        // Given
+        const testState = {
+          ...baseTestState,
+          current: {...baseTestState.current, num: ''}
+        }
+        const expected = {
+          ...baseTestState,
+          current: {...baseTestState.current, num: '0'}
+        }
+
+        // When
+        const actual = handleDoubleZero(testState, doubleZeroAction())
+
+        // Then
+        assert(handleDoubleZero_setsZeroWhenEmpty.name, expected, actual)
+      }
+
+      const handleDoubleZero_doesNothingWhenZero = () => {
+        // Given
+        const testState = {
+          ...baseTestState,
+          current: {...baseTestState.current, num: '0'}
+        }
+        const expected = {
+          ...baseTestState,
+          current: {...baseTestState.current, num: '0'}
+        }
+
+        // When
+        const actual = handleDoubleZero(testState, doubleZeroAction())
+
+        // Then
+        assert(handleDoubleZero_doesNothingWhenZero.name, expected, actual)
+      }
+
+      handleDoubleZero_appendsWhenHasValue()
+      handleDoubleZero_setsZeroWhenEmpty()
+      handleDoubleZero_doesNothingWhenZero()
+
+      const handleTripleZero_appendsWhenHasValue = () => {
+        // Given
+        const testState = {
+          ...baseTestState,
+          current: {...baseTestState.current, num: '10'}
+        }
+        const expected = {
+          ...baseTestState,
+          current: {...baseTestState.current, num: '10000'}
+        }
+
+        // When
+        const actual = handleTripleZero(testState, tripleZeroAction())
+
+        // Then
+        assert(handleTripleZero_appendsWhenHasValue.name, expected, actual)
+      }
+
+      const handleTripleZero_setsZeroWhenEmpty = () => {
+        // Given
+        const testState = {
+          ...baseTestState,
+          current: {...baseTestState.current, num: ''}
+        }
+        const expected = {
+          ...baseTestState,
+          current: {...baseTestState.current, num: '0'}
+        }
+
+        // When
+        const actual = handleTripleZero(testState, tripleZeroAction())
+
+        // Then
+        assert(handleTripleZero_setsZeroWhenEmpty.name, expected, actual)
+      }
+
+      const handleTripleZero_doesNothingWhenZero = () => {
+        // Given
+        const testState = {
+          ...baseTestState,
+          current: {...baseTestState.current, num: '0'}
+        }
+        const expected = {
+          ...baseTestState,
+          current: {...baseTestState.current, num: '0'}
+        }
+
+        // When
+        const actual = handleTripleZero(testState, tripleZeroAction())
+
+        // Then
+        assert(handleTripleZero_doesNothingWhenZero.name, expected, actual)
+      }
+
+      handleTripleZero_appendsWhenHasValue()
+      handleTripleZero_setsZeroWhenEmpty()
+      handleTripleZero_doesNothingWhenZero()
+
+      const handleAppendOperation_appendsOperationAndUpdatesLog = () => {
+        // Given
+        const testState = {
+          ...baseTestState,
+          log: [{op: OPERATION.INIT, num: Big(10)}],
+          current: {...baseTestState.current, op: OPERATION.SUB, num: '5'}
+        }
+        const expected = {
+          ...baseTestState,
+          log: [{op: OPERATION.INIT, num: Big(10)}, {op: OPERATION.SUB, num: Big(5)}],
+          current: {...baseTestState.current, op: OPERATION.ADD, num: ''}
+        }
+
+        // When
+        const actual = handleAppendOperation(testState, appendOperationAction(OPERATION.ADD))
+
+        // Then
+        assert(handleAppendOperation_appendsOperationAndUpdatesLog.name, expected, actual)
+      }
+
+      const handleAppendOperation_appendsOperationAndUpdatesEmptyLog = () => {
+        // Given
+        const testState = {
+          ...baseTestState,
+          log: null,
+          current: {...baseTestState.current, op: OPERATION.INIT, num: '5'}
+        }
+        const expected = {
+          ...baseTestState,
+          log: [{op: OPERATION.INIT, num: Big(5)}],
+          current: {...baseTestState.current, op: OPERATION.ADD, num: ''}
+        }
+
+        // When
+        const actual = handleAppendOperation(testState, appendOperationAction(OPERATION.ADD))
+
+        // Then
+        assert(handleAppendOperation_appendsOperationAndUpdatesEmptyLog.name, expected, actual)
+      }
+
+      const handleAppendOperation_updatesOperationWhenCurrentEmpty = () => {
+        // Given
+        const testState = {
+          ...baseTestState,
+          log: [{op: OPERATION.INIT, num: Big(10)}],
+          current: {...baseTestState.current, op: OPERATION.SUB, num: ''}
+        }
+        const expected = {
+          ...baseTestState,
+          log: [{op: OPERATION.INIT, num: Big(10)}],
+          current: {...baseTestState.current, op: OPERATION.ADD, num: ''}
+        }
+
+        // When
+        const actual = handleAppendOperation(testState, appendOperationAction(OPERATION.ADD))
+
+        // Then
+        assert(handleAppendOperation_updatesOperationWhenCurrentEmpty.name, expected, actual)
+      }
+
+      handleAppendOperation_appendsOperationAndUpdatesLog()
+      handleAppendOperation_appendsOperationAndUpdatesEmptyLog()
+      handleAppendOperation_updatesOperationWhenCurrentEmpty()
+
+      const handleEquals_updateLogAndResetsCurrent = () => {
+        // Given
+        const testState = {
+          ...baseTestState,
+          log: [{op: OPERATION.INIT, num: Big(10)}],
+          current: {...baseTestState.current, op: OPERATION.SUB, num: '6'}
+        }
+        const expected = {
+          ...baseTestState,
+          log: [{op: OPERATION.INIT, num: Big(10)}, {op: OPERATION.SUB, num: Big(6)}, {op: OPERATION.EQUALS, num: Big(4)}],
+          current: {...baseTestState.current, op: OPERATION.INIT, num: ''}
+        }
+
+        // When
+        const actual = handleEquals(testState, equalsAction())
+
+        // Then
+        assert(handleEquals_updateLogAndResetsCurrent.name, expected, actual)
+      }
+
+      const handleEquals_updateLogAndResetsCurrentWithEmptyLog = () => {
+        // Given
+        const testState = {
+          ...baseTestState,
+          log: null,
+          current: {...baseTestState.current, op: OPERATION.INIT, num: '6'}
+        }
+        const expected = {
+          ...baseTestState,
+          log: [{op: OPERATION.INIT, num: Big(6)}, {op: OPERATION.EQUALS, num: Big(6)}],
+          current: {...baseTestState.current, op: OPERATION.INIT, num: ''}
+        }
+
+        // When
+        const actual = handleEquals(testState, equalsAction())
+
+        // Then
+        assert(handleEquals_updateLogAndResetsCurrentWithEmptyLog.name, expected, actual)
+      }
+
+      const handleEquals_updateLogAndResetsCurrentWithEmptyCurrent = () => {
+        // Given
+        const testState = {
+          ...baseTestState,
+          log: [{op: OPERATION.INIT, num: Big(6)}],
+          current: {...baseTestState.current, op: OPERATION.INIT, num: ''}
+        }
+        const expected = {
+          ...baseTestState,
+          log: [{op: OPERATION.INIT, num: Big(6)}, {op: OPERATION.EQUALS, num: Big(6)}],
+          current: {...baseTestState.current, op: OPERATION.INIT, num: ''}
+        }
+
+        // When
+        const actual = handleEquals(testState, equalsAction())
+
+        // Then
+        assert(handleEquals_updateLogAndResetsCurrentWithEmptyCurrent.name, expected, actual)
+      }
+
+      const handleEquals_updatesToZeroIfEmptyCurrentAndLog = () => {
+        // Given
+        const testState = {
+          ...baseTestState,
+          log: null,
+          current: {...baseTestState.current, op: OPERATION.INIT, num: ''}
+        }
+        const expected = {
+          ...baseTestState,
+          log: [{op: OPERATION.INIT, num: Big(0)}, {op: OPERATION.EQUALS, num: Big(0)}],
+          current: {...baseTestState.current, op: OPERATION.INIT, num: ''}
+        }
+
+        // When
+        const actual = handleEquals(testState, equalsAction())
+
+        // Then
+        assert(handleEquals_updatesToZeroIfEmptyCurrentAndLog.name, expected, actual)
+      }
+
+
+      handleEquals_updateLogAndResetsCurrent()
+      handleEquals_updateLogAndResetsCurrentWithEmptyLog()
+      handleEquals_updateLogAndResetsCurrentWithEmptyCurrent()
+      handleEquals_updatesToZeroIfEmptyCurrentAndLog()
+
+      const handleBackspace_removesLastNumber = () => {
+        // Given
+        const testState = {
+          ...baseTestState,
+          log: null,
+          current: {...baseTestState.current, op: OPERATION.INIT, num: '100'}
+        }
+        const expected = {
+          ...baseTestState,
+          log: null,
+          current: {...baseTestState.current, op: OPERATION.INIT, num: '10'}
+        }
+
+        // When
+        const actual = handleBackspace(testState, backspaceAction())
+
+        // Then
+        assert(handleBackspace_removesLastNumber.name, expected, actual)
+      }
+
+      const handleBackspace_doesNothingOnEmpty = () => {
+        // Given
+        const testState = {
+          ...baseTestState,
+          log: null,
+          current: {...baseTestState.current, op: OPERATION.INIT, num: ''}
+        }
+        const expected = {
+          ...baseTestState,
+          log: null,
+          current: {...baseTestState.current, op: OPERATION.INIT, num: ''}
+        }
+
+        // When
+        const actual = handleBackspace(testState, backspaceAction())
+
+        // Then
+        assert(handleBackspace_doesNothingOnEmpty.name, expected, actual)
+      }
+
+      handleBackspace_removesLastNumber()
+      handleBackspace_doesNothingOnEmpty()
+
+      const handleClearEntry_clearsCurrentState = () => {
+        // Given
+        const testState = {
+          ...baseTestState,
+          log: [{op: OPERATION.INIT, num: Big(10)}],
+          current: {...baseTestState.current, op: OPERATION.SUB, num: '105'}
+        }
+        const expected = {
+          ...baseTestState,
+          log: [{op: OPERATION.INIT, num: Big(10)}],
+          current: {...baseTestState.current, op: OPERATION.SUB, num: '0'}
+        }
+
+        // When
+        const actual = handleClearEntry(testState, clearEntryAction())
+
+        // Then
+        assert(handleClearEntry_clearsCurrentState.name, expected, actual)
+      }
+
+      handleClearEntry_clearsCurrentState()
+
+      const handleClearTape_clearsTape = () => {
+        // Given
+        const testState = {
+          ...baseTestState,
+          log: [{op: OPERATION.INIT, num: Big(10)}],
+          current: {...baseTestState.current, op: OPERATION.SUB, num: '105'}
+        }
+        const expected = {
+          ...baseTestState,
+          log: null,
+          current: {...baseTestState.current, op: OPERATION.INIT, num: '105'}
+        }
+
+        // When
+        const actual = handleClearTape(testState, clearTapeAction())
+
+        // Then
+        assert(handleClearTape_clearsTape.name, expected, actual)
+      }
+
+      handleClearTape_clearsTape()
+
+      const handleClearAll_clearsTapeAndCurrent = () => {
+        // Given
+        const testState = {
+          ...baseTestState,
+          log: [{op: OPERATION.INIT, num: Big(10)}],
+          current: {...baseTestState.current, op: OPERATION.SUB, num: '105'}
+        }
+        const expected = {
+          ...baseTestState,
+          log: null,
+          current: {...baseTestState.current, op: OPERATION.INIT, num: ''}
+        }
+
+        // When
+        const actual = handleClearAll(testState, clearAllAction())
+
+        // Then
+        assert(handleClearTape_clearsTape.name, expected, actual)
+      }
+
+      handleClearAll_clearsTapeAndCurrent()
+
+      // Action Tests
+      const appendNumberAction_returnsTheCorrectAction = () => {
+        // Given
+        const expected = {type: CALC_ACTION.APPEND_NUMBER, payload: {num: '9'}}
+
+        // When
+        const actual = appendNumberAction('9')
+
+        // Then
+        assert(appendNumberAction_returnsTheCorrectAction.name, expected, actual)
+      }
+
+      const appendOperationAction_returnsTheCorrectAction = () => {
+        // Given
+        const expected = {type: CALC_ACTION.APPEND_OPERATION, payload: {op: OPERATION.DIV}}
+
+        // When
+        const actual = appendOperationAction(OPERATION.DIV)
+
+        // Then
+        assert(appendOperationAction_returnsTheCorrectAction.name, expected, actual)
+      }
+
+      const decimalAction_returnsTheCorrectAction = () => {
+        // Given
+        const expected = {type: CALC_ACTION.DECIMAL}
+
+        // When
+        const actual = decimalAction()
+
+        // Then
+        assert(decimalAction_returnsTheCorrectAction.name, expected, actual)
+      }
+
+      const invertAction_returnsTheCorrectAction = () => {
+        // Given
+        const expected = {type: CALC_ACTION.INVERT}
+
+        // When
+        const actual = invertAction()
+
+        // Then
+        assert(invertAction_returnsTheCorrectAction.name, expected, actual)
+      }
+
+      const doubleZeroAction_returnsTheCorrectAction = () => {
+        // Given
+        const expected = {type: CALC_ACTION.DOUBLE_ZERO}
+
+        // When
+        const actual = doubleZeroAction()
+
+        // Then
+        assert(doubleZeroAction_returnsTheCorrectAction.name, expected, actual)
+      }
+
+      const tripleZeroAction_returnsTheCorrectAction = () => {
+        // Given
+        const expected = {type: CALC_ACTION.TRIPLE_ZERO}
+
+        // When
+        const actual = tripleZeroAction()
+
+        // Then
+        assert(tripleZeroAction_returnsTheCorrectAction.name, expected, actual)
+      }
+
+      const equalsAction_returnsTheCorrectAction = () => {
+        // Given
+        const expected = {type: CALC_ACTION.EQUALS}
+
+        // When
+        const actual = equalsAction()
+
+        // Then
+        assert(equalsAction_returnsTheCorrectAction.name, expected, actual)
+      }
+
+      const backspaceAction_returnsTheCorrectAction = () => {
+        // Given
+        const expected = {type: CALC_ACTION.BACKSPACE}
+
+        // When
+        const actual = backspaceAction()
+
+        // Then
+        assert(backspaceAction_returnsTheCorrectAction.name, expected, actual)
+      }
+
+      const clearEntryAction_returnsTheCorrectAction = () => {
+        // Given
+        const expected = {type: CALC_ACTION.CLEAR_ENTRY}
+
+        // When
+        const actual = clearEntryAction()
+
+        // Then
+        assert(clearEntryAction_returnsTheCorrectAction.name, expected, actual)
+      }
+
+      const clearTapeAction_returnsTheCorrectAction = () => {
+        // Given
+        const expected = {type: CALC_ACTION.CLEAR_TAPE}
+
+        // When
+        const actual = clearTapeAction()
+
+        // Then
+        assert(clearTapeAction_returnsTheCorrectAction.name, expected, actual)
+      }
+
+      const clearAllAction_returnsTheCorrectAction = () => {
+        // Given
+        const expected = {type: CALC_ACTION.CLEAR_ALL}
+
+        // When
+        const actual = clearAllAction()
+
+        // Then
+        assert(clearAllAction_returnsTheCorrectAction.name, expected, actual)
+      }
+
+      appendNumberAction_returnsTheCorrectAction()
+      appendOperationAction_returnsTheCorrectAction()
+      decimalAction_returnsTheCorrectAction()
+      invertAction_returnsTheCorrectAction()
+      doubleZeroAction_returnsTheCorrectAction()
+      tripleZeroAction_returnsTheCorrectAction()
+      equalsAction_returnsTheCorrectAction()
+      backspaceAction_returnsTheCorrectAction()
+      clearEntryAction_returnsTheCorrectAction()
+      clearTapeAction_returnsTheCorrectAction()
+      clearAllAction_returnsTheCorrectAction()
+
+    }
+  </script>
+
+  <script> // Memory =====================================================================
+    // Selectors
+
+    /**
+     * Selector
+     * @param {TapeCalcState} state
+     * @returns {BigNumber} - The current memory value 
+     **/
+    const selectMemoryValue = (state) => state.memory
+
+    // Reducers
+
+    /** 
+     * Handle Clearing the Memory
+     * @param {TapeCalcState} state
+     * @param {MemoryClearAction} action
+     * @returns {TapeCalcState}
+     **/
     const handleMemoryClear = (state, action) => {
       return {
         ...state,
-        memory: math.bignumber(0)
+        memory: Big(0)
       }
     }
 
+    /** 
+     * Handle Adding the Current Value to Memory
+     * @param {TapeCalcState} state
+     * @param {MemoryAddAction} action
+     * @returns {TapeCalcState}
+     **/
     const handleMemoryAdd = (state, action) => {
-      const currentNum = currentDisplayBigNumberSelector(state)
-      const memory = memoryValueSelector(state)
+      const currentNum = selectCurrentDisplayAsBigNumber(state)
+      const memory = selectMemoryValue(state)
 
       return {
         ...state,
-        memory: math.add(memory, currentNum)
+        memory: memory.plus(currentNum)
       }
     }
 
+    /** 
+     * Handle Subtracting the Current Value to Memory
+     * @param {TapeCalcState} state
+     * @param {MemorySubtractAction} action
+     * @returns {TapeCalcState}
+     **/
     const handleMemorySubtract = (state, action) => {
-      const currentNum = currentDisplayBigNumberSelector(state)
-      const memory = memoryValueSelector(state)
+      const currentNum = selectCurrentDisplayAsBigNumber(state)
+      const memory = selectMemoryValue(state)
 
       return {
         ...state,
-        memory: math.subtract(memory, currentNum)
+        memory: memory.minus(currentNum)
       }
     }
 
+    /** 
+     * Handle Storing the Current Value in Memory
+     * @param {TapeCalcState} state
+     * @param {MemoryStoreAction} action
+     * @returns {TapeCalcState}
+     **/
     const handleMemoryStore = (state, action) => {
-      const currentNum = currentDisplayBigNumberSelector(state)
+      const currentNum = selectCurrentDisplayAsBigNumber(state)
 
       return {
         ...state,
@@ -692,8 +3440,14 @@
       }
     }
 
+    /** 
+     * Handle Restoring the Memory to the Current Value
+     * @param {TapeCalcState} state
+     * @param {MemoryRecallAction} action
+     * @returns {TapeCalcState}
+     **/
     const handleMemoryRecall = (state, action) => {
-      const memory = memoryValueSelector(state)
+      const memory = selectMemoryValue(state)
 
       return {
         ...state,
@@ -704,6 +3458,261 @@
       }
     }
 
+    // Actions
+    const MEMORY_ACTION = {
+      MEMORY_CLEAR: "memoryClear",
+      MEMORY_ADD: "memoryAdd",
+      MEMORY_SUBTRACT: "memorySubtract",
+      MEMORY_STORE: "memoryStore",
+      MEMORY_RECALL: "memoryRecall",
+    }
+
+    /** @typedef {Action<"memoryClear", undefined>} MemoryClearAction */
+    /** Action Creator
+     * @returns {MemoryClearAction}
+     **/
+    const memoryClearAction = () => ({type: MEMORY_ACTION.MEMORY_CLEAR})
+    /** @typedef {Action<"memoryAdd", undefined>} MemoryAddAction */
+    /** Action Creator
+     * @returns {MemoryClearAction}
+     **/
+    const memoryAddAction = () => ({type: MEMORY_ACTION.MEMORY_ADD})
+    /** @typedef {Action<"memorySubtract", undefined>} MemorySubtractAction */
+    /** Action Creator
+     * @returns {MemorySubtractAction}
+     **/
+    const memorySubtractAction = () => ({type: MEMORY_ACTION.MEMORY_SUBTRACT})
+    /** @typedef {Action<"memoryStore", undefined>} MemoryStoreAction */
+    /** Action Creator
+     * @returns {MemoryStoreAction}
+     **/
+    const memoryStoreAction = () => ({type: MEMORY_ACTION.MEMORY_STORE})
+    /** @typedef {Action<"memoryRecall", undefined>} MemoryRecallAction */
+    /** Action Creator
+     * @returns {MemoryRecallAction}
+     **/
+    const memoryRecallAction = () => ({type: MEMORY_ACTION.MEMORY_RECALL})
+
+    // Tests
+    const runMemoryTests = () => {
+      const baseTestState = {
+        memory: Big(100),
+        log: [],
+        current: {
+          num: '10',
+          op: OPERATION.INIT
+        },
+        copyTapeResult: COPY_TAPE_RESULT.NONE
+      }
+
+      // Selector Tests
+      const selectMemoryValue_returnsMemoryValue = () => {
+        // Given 
+        const testState = baseTestState
+        const expected = Big(100)
+
+        // When
+        const actual = selectMemoryValue(testState)
+
+        // Then
+        assert(selectMemoryValue_returnsMemoryValue.name, expected, actual)
+      }
+
+      selectMemoryValue_returnsMemoryValue()
+
+      // Reducer Tests
+      const handleMemoryClear_clearsMemoryValue = () => {
+        // Given
+        const testState = baseTestState
+        const expected = {
+          ...baseTestState,
+          memory: Big(0),
+        }
+
+        // When
+        const actual = handleMemoryClear(testState, memoryClearAction())
+
+        // Then
+        assert(handleMemoryClear_clearsMemoryValue.name, expected, actual)
+      }
+
+      handleMemoryClear_clearsMemoryValue()
+
+      const handleMemoryAdd_addsCurrentToMemory = () => {
+        // Given
+        const testState = {
+          ...baseTestState,
+          current: {...baseTestState.current, op: OPERATION.INIT, num: '36'}
+        }
+        const expected = {
+          ...baseTestState,
+          memory: Big(136),
+          current: {...baseTestState.current, op: OPERATION.INIT, num: '36'}
+        }
+
+        // When
+        const actual = handleMemoryAdd(testState, memoryAddAction())
+
+        // Then
+        assert(handleMemoryAdd_addsCurrentToMemory.name, expected, actual)
+      }
+
+      handleMemoryAdd_addsCurrentToMemory()
+
+      const handleMemorySubtract_subtractsCurrentFromMemory = () => {
+        // Given
+        const testState = {
+          ...baseTestState,
+          current: {...baseTestState.current, op: OPERATION.INIT, num: '36'}
+        }
+        const expected = {
+          ...baseTestState,
+          memory: Big(64),
+          current: {...baseTestState.current, op: OPERATION.INIT, num: '36'}
+        }
+
+        // When
+        const actual = handleMemorySubtract(testState, memorySubtractAction())
+
+        // Then
+        assert(handleMemorySubtract_subtractsCurrentFromMemory.name, expected, actual)
+      }
+
+      handleMemorySubtract_subtractsCurrentFromMemory()
+
+      const handleMemoryStore_replacesMemoryWithCurrent = () => {
+        // Given
+        const testState = {
+          ...baseTestState,
+          current: {...baseTestState.current, op: OPERATION.INIT, num: '36'}
+        }
+        const expected = {
+          ...baseTestState,
+          memory: Big(36),
+          current: {...baseTestState.current, op: OPERATION.INIT, num: '36'}
+        }
+
+        // When
+        const actual = handleMemoryStore(testState, memoryStoreAction())
+
+        // Then
+        assert(handleMemoryStore_replacesMemoryWithCurrent.name, expected, actual)
+      }
+
+      handleMemoryStore_replacesMemoryWithCurrent()
+
+      const handleMemoryRecall_replacesCurrentWithMemory = () => {
+        // Given
+        const testState = {
+          ...baseTestState,
+          current: {...baseTestState.current, op: OPERATION.INIT, num: '36'}
+        }
+        const expected = {
+          ...baseTestState,
+          current: {...baseTestState.current, op: OPERATION.INIT, num: '100'}
+        }
+
+        // When
+        const actual = handleMemoryRecall(testState, memoryRecallAction())
+
+        // Then
+        assert(handleMemoryRecall_replacesCurrentWithMemory.name, expected, actual)
+      }
+
+      handleMemoryRecall_replacesCurrentWithMemory()
+
+      // Action Tests
+      const memoryClearAction_returnsTheCorrectAction = () => {
+        // Given
+        const expected = {type: MEMORY_ACTION.MEMORY_CLEAR}
+
+        // When
+        const actual = memoryClearAction()
+
+        // Then
+        assert(memoryClearAction_returnsTheCorrectAction.name, expected, actual)
+      }
+
+      const memoryAddAction_returnsTheCorrectAction = () => {
+        // Given
+        const expected = {type: MEMORY_ACTION.MEMORY_ADD}
+
+        // When
+        const actual = memoryAddAction()
+
+        // Then
+        assert(memoryAddAction_returnsTheCorrectAction.name, expected, actual)
+      }
+
+      const memorySubtractAction_returnsTheCorrectAction = () => {
+        // Given
+        const expected = {type: MEMORY_ACTION.MEMORY_SUBTRACT}
+
+        // When
+        const actual = memorySubtractAction()
+
+        // Then
+        assert(memorySubtractAction_returnsTheCorrectAction.name, expected, actual)
+      }
+
+      const memoryStoreAction_returnsTheCorrectAction = () => {
+        // Given
+        const expected = {type: MEMORY_ACTION.MEMORY_STORE}
+
+        // When
+        const actual = memoryStoreAction()
+
+        // Then
+        assert(memoryStoreAction_returnsTheCorrectAction.name, expected, actual)
+      }
+
+      const memoryRecallAction_returnsTheCorrectAction = () => {
+        // Given
+        const expected = {type: MEMORY_ACTION.MEMORY_RECALL}
+
+        // When
+        const actual = memoryRecallAction()
+
+        // Then
+        assert(memoryRecallAction_returnsTheCorrectAction.name, expected, actual)
+      }
+
+      memoryClearAction_returnsTheCorrectAction()
+      memoryAddAction_returnsTheCorrectAction()
+      memorySubtractAction_returnsTheCorrectAction()
+      memoryStoreAction_returnsTheCorrectAction()
+      memoryRecallAction_returnsTheCorrectAction()
+    }
+
+  </script>
+
+  <script> // Copy Tape ==================================================================
+    /**
+     * @typedef {'SUCCESS'|'ERROR'|'NONE'} CopyTapeResult
+     **/
+
+    // Constants
+    const COPY_TAPE_RESULT = {
+      SUCCESS: 'SUCCESS',
+      ERROR: 'ERROR',
+      NONE: 'NONE'
+    }
+
+    // Selectors
+
+    /**
+     * Selector
+     * @param {TapeCalcState} state
+     * @returns {CopyTapeResult} - The current copy tape result
+     **/
+    const selectCopyTapeResult = (state) => state.copyTapeResult
+
+    /** 
+     * Handle the Copy Tape Action
+     * @param {TapeCalcState} state
+     * @param {CopyTapeAction} action
+     * @returns {TapeCalcState}
+     **/
     const handleCopyTape = (state, action) => {
       return {
         ...state,
@@ -711,6 +3720,12 @@
       }
     }
 
+    /** 
+     * Handle the Copy Tape Success Action
+     * @param {TapeCalcState} state
+     * @param {CopyTapeSuccessAction} action
+     * @returns {TapeCalcState}
+     **/
     const handleCopyTapeSuccess = (state, action) => {
       return {
         ...state,
@@ -718,6 +3733,12 @@
       }
     }
 
+    /** 
+     * Handle the Copy Tape Error Action
+     * @param {TapeCalcState} state
+     * @param {CopyTapeErrorAction} action
+     * @returns {TapeCalcState}
+     **/
     const handleCopyTapeError = (state, action) => {
       return {
         ...state,
@@ -725,6 +3746,12 @@
       }
     }
 
+    /** 
+     * Handle the Copy Tape Clear Action
+     * @param {TapeCalcState} state
+     * @param {CopyTapeClearAction} action
+     * @returns {TapeCalcState}
+     **/
     const handleCopyTapeClear = (state, action) => {
       return {
         ...state,
@@ -732,6 +3759,672 @@
       }
     }
 
+    // Actions
+
+    const COPY_TAPE_ACTION = {
+      COPY_TAPE: "copyTape",
+      COPY_TAPE_SUCCESS: "copyTapeSuccess",
+      COPY_TAPE_ERROR: "copyTapeError",
+      COPY_TAPE_CLEAR: "copyTapeClear",
+    }
+
+    /** @typedef {Action<"copyTape", undefined>} CopyTapeAction */
+    /** Action Creator
+     * @returns {CopyTapeAction}
+     **/
+    const copyTapeAction = () => ({type: COPY_TAPE_ACTION.COPY_TAPE})
+    /** @typedef {Action<"copyTapeSuccess", undefined>} CopyTapeSuccessAction */
+    /** Action Creator
+     * @returns {CopyTapeSuccessAction}
+     **/
+    const copyTapeSuccessAction = () => ({type: COPY_TAPE_ACTION.COPY_TAPE_SUCCESS})
+    /** @typedef {Action<"copyTapeError", undefined>} CopyTapeErrorAction */
+    /** Action Creator
+     * @returns {CopyTapeErrorAction}
+     **/
+    const copyTapeErrorAction = () => ({type: COPY_TAPE_ACTION.COPY_TAPE_ERROR})
+    /** @typedef {Action<"copyTapeClear", undefined>} CopyTapeClearAction */
+    /** Action Creator
+     * @returns {CopyTapeClearAction}
+     **/
+    const copyTapeClearAction = () => ({type: COPY_TAPE_ACTION.COPY_TAPE_CLEAR})
+
+    // Middleware
+
+    let copyTimeout = null
+    /** @type {Middleware<TapeCalcState>} */
+    const copyTapeMiddleware = (action, state, dispatch) => {
+      if (action.type === COPY_TAPE_ACTION.COPY_TAPE) {
+        clearTimeout(copyTimeout)
+        copyTimeout = null
+
+        const tape = selectTapeContent(state)
+
+        navigator.clipboard.writeText(tape)
+          .then(() => dispatch(copyTapeSuccessAction()))
+          .catch((err) => {
+            console.error('Failed to copy text:', err)
+            dispatch(copyTapeErrorAction())
+          })
+      } else if (action.type === COPY_TAPE_ACTION.COPY_TAPE_SUCCESS || action.type === COPY_TAPE_ACTION.COPY_TAPE_ERROR) {
+        clearTimeout(copyTimeout)
+        copyTimeout = setTimeout(() => dispatch(copyTapeClearAction()), 3000)
+      } else if (action.type === COPY_TAPE_ACTION.COPY_TAPE_CLEAR) {
+        clearTimeout(copyTimeout)
+        copyTimeout = null
+      }
+
+      return action
+    }
+
+    // Tests
+    const runCopyTapeTests = () => {
+      const baseTestState = {
+        memory: Big(100),
+        log: [],
+        current: {
+          num: '10',
+          op: OPERATION.INIT
+        },
+        copyTapeResult: COPY_TAPE_RESULT.NONE
+      }
+
+      const selectCopyTapeResult_returnsCurrentTapeResultWhenNone = () => {
+        // Given 
+        const testState = baseTestState
+        const expected = COPY_TAPE_RESULT.NONE
+
+        // When
+        const actual = selectCopyTapeResult(testState)
+
+        // Then
+        assert(selectCopyTapeResult_returnsCurrentTapeResultWhenNone.name, expected, actual)
+      }
+
+      const selectCopyTapeResult_returnsCurrentTapeResultWhenSuccess = () => {
+        // Given 
+        const testState = {
+          ...baseTestState,
+          copyTapeResult: COPY_TAPE_RESULT.SUCCESS,
+        }
+        const expected = COPY_TAPE_RESULT.SUCCESS
+
+        // When
+        const actual = selectCopyTapeResult(testState)
+
+        // Then
+        assert(selectCopyTapeResult_returnsCurrentTapeResultWhenSuccess.name, expected, actual)
+      }
+
+      const selectCopyTapeResult_returnsCurrentTapeResultWhenError = () => {
+        // Given 
+        const testState = {
+          ...baseTestState,
+          copyTapeResult: COPY_TAPE_RESULT.ERROR,
+        }
+        const expected = COPY_TAPE_RESULT.ERROR
+
+        // When
+        const actual = selectCopyTapeResult(testState)
+
+        // Then
+        assert(selectCopyTapeResult_returnsCurrentTapeResultWhenError.name, expected, actual)
+      }
+
+      selectCopyTapeResult_returnsCurrentTapeResultWhenNone()
+      selectCopyTapeResult_returnsCurrentTapeResultWhenSuccess()
+      selectCopyTapeResult_returnsCurrentTapeResultWhenError()
+
+      // Reducer Tests
+      const handleCopyTape_setsCopyTapeResult = () => {
+        // Given
+        const testState = {
+          ...baseTestState,
+          copyTapeResult: COPY_TAPE_RESULT.SUCCESS,
+        }
+        const expected = {
+          ...baseTestState,
+          copyTapeResult: COPY_TAPE_RESULT.NONE,
+        }
+
+        // When
+        const actual = handleCopyTape(testState, copyTapeAction())
+
+        // Then
+        assert(handleCopyTape_setsCopyTapeResult.name, expected, actual)
+      }
+
+      handleCopyTape_setsCopyTapeResult()
+
+      const handleCopyTapeSuccess_setsCopyTapeResult = () => {
+        // Given
+        const testState = baseTestState
+        const expected = {
+          ...baseTestState,
+          copyTapeResult: COPY_TAPE_RESULT.SUCCESS,
+        }
+
+        // When
+        const actual = handleCopyTapeSuccess(testState, copyTapeSuccessAction())
+
+        // Then
+        assert(handleCopyTapeSuccess_setsCopyTapeResult.name, expected, actual)
+      }
+
+      handleCopyTapeSuccess_setsCopyTapeResult()
+
+      const handleCopyTapeError_setsCopyTapeResult = () => {
+        // Given
+        const testState = baseTestState
+        const expected = {
+          ...baseTestState,
+          copyTapeResult: COPY_TAPE_RESULT.ERROR,
+        }
+
+        // When
+        const actual = handleCopyTapeError(testState, copyTapeErrorAction())
+
+        // Then
+        assert(handleCopyTapeError_setsCopyTapeResult.name, expected, actual)
+      }
+
+      handleCopyTapeError_setsCopyTapeResult()
+
+      const handleCopyTapeClear_setsCopyTapeResult = () => {
+        // Given
+        const testState = {
+          ...baseTestState,
+          copyTapeResult: COPY_TAPE_RESULT.ERROR,
+        }
+        const expected = {
+          ...baseTestState,
+          copyTapeResult: COPY_TAPE_RESULT.NONE,
+        }
+
+        // When
+        const actual = handleCopyTapeClear(testState, copyTapeClearAction())
+
+        // Then
+        assert(handleCopyTapeClear_setsCopyTapeResult.name, expected, actual)
+      }
+
+      handleCopyTapeClear_setsCopyTapeResult()
+
+      // Action Tests
+
+      const copyTapeAction_returnsTheCorrectAction = () => {
+        // Given
+        const expected = {type: COPY_TAPE_ACTION.COPY_TAPE}
+
+        // When
+        const actual = copyTapeAction()
+
+        // Then
+        assert(copyTapeAction_returnsTheCorrectAction.name, expected, actual)
+      }
+
+      const copyTapeSuccessAction_returnsTheCorrectAction = () => {
+        // Given
+        const expected = {type: COPY_TAPE_ACTION.COPY_TAPE_SUCCESS}
+
+        // When
+        const actual = copyTapeSuccessAction()
+
+        // Then
+        assert(copyTapeSuccessAction_returnsTheCorrectAction.name, expected, actual)
+      }
+
+      const copyTapeErrorAction_returnsTheCorrectAction = () => {
+        // Given
+        const expected = {type: COPY_TAPE_ACTION.COPY_TAPE_ERROR}
+
+        // When
+        const actual = copyTapeErrorAction()
+
+        // Then
+        assert(copyTapeErrorAction_returnsTheCorrectAction.name, expected, actual)
+      }
+
+      const copyTapeClearAction_returnsTheCorrectAction = () => {
+        // Given
+        const expected = {type: COPY_TAPE_ACTION.COPY_TAPE_CLEAR}
+
+        // When
+        const actual = copyTapeClearAction()
+
+        // Then
+        assert(copyTapeClearAction_returnsTheCorrectAction.name, expected, actual)
+      }
+
+      copyTapeAction_returnsTheCorrectAction()
+      copyTapeSuccessAction_returnsTheCorrectAction()
+      copyTapeErrorAction_returnsTheCorrectAction()
+      copyTapeClearAction_returnsTheCorrectAction()
+    }
+  </script>
+
+  <script> // View =======================================================================
+
+    /** @type Subscriber<TapeCalcState> */
+    const renderCurrent = (state, prevState) => {
+      const current = document.getElementById("current")
+      const display = selectCurrentDisplayValue(state)
+      current.innerHTML = numberFormat(display)
+    }
+
+    /** @type Subscriber<TapeCalcState> */
+    const renderTape = (state, prevState) => {
+      const tapeArea = document.getElementById("tape-area")
+      const tape = document.getElementById("tape")
+      const copyButton = document.getElementById("copy-button")
+
+      const log = selectLog(state)
+      const prevLog = selectLog(prevState)
+
+      const wasCleared = selectIsLogCleared(state)
+      if (wasCleared) {
+        tape.innerHTML = "CLEARED"
+        return
+      }
+
+      const tapeContent = selectTapeContent(state)
+
+      tape.innerHTML = tapeContent
+
+      if (log !== prevLog) {
+        tapeArea.scrollTo(0, tapeArea.scrollHeight)
+      }
+
+      const copyTapeResult = selectCopyTapeResult(state)
+
+      if (copyTapeResult === COPY_TAPE_RESULT.SUCCESS) {
+        copyButton.style.backgroundColor = getComputedStyle(copyButton).getPropertyValue("--color-pop-container");
+        copyButton.classList.add("copy-button-notification")
+        copyButton.innerHTML = '⧉ - Copied!'
+      } else if (copyTapeResult === COPY_TAPE_RESULT.ERROR) {
+        copyButton.style.backgroundColor = getComputedStyle(copyButton).getPropertyValue("--color-error");
+        copyButton.classList.add("copy-button-notification")
+        copyButton.innerHTML = '⧉ - Failed!'
+      } else {
+        copyButton.classList.remove("copy-button-notification")
+        copyButton.style.backgroundColor = getComputedStyle(copyButton).getPropertyValue("--color-container");
+        copyButton.innerHTML = '⧉'
+      }
+    }
+
+    /** @type Subscriber<TapeCalcState> */
+    const renderMemory = (state, prevState) => {
+      const memory = document.getElementById("memory")
+      const memoryValue = selectMemoryValue(state)
+      memory.innerHTML = "MEM: " + numberFormat(memoryValue)
+    }
+
+  </script>
+
+  <script> // Keyboard ===================================================================
+    // Actions
+    const KEYBOARD_ACTION = {
+      KEY_INPUT: 'keyInput'
+    }
+
+    /** @typedef {Action<"keyInput", {key: string}>} KeyInputAction */
+    /** Action Creator
+     * @param {string} key
+     * @returns {KeyInputAction}
+     **/
+    const keyboardInputAction = (key) => ({type: KEYBOARD_ACTION.KEY_INPUT, payload: {key}})
+
+    // Middleware
+
+    /** @type Middleware<TapeCalcState> */
+    const keyboardHandlerMiddleware = (action, state, dispatch) => {
+      if (action.type !== KEYBOARD_ACTION.KEY_INPUT) {
+        return action
+      }
+
+      const key = action.payload.key
+      switch (key) {
+        case '1':
+        case '2':
+        case '3':
+        case '4':
+        case '5':
+        case '6':
+        case '7':
+        case '8':
+        case '9':
+        case '0':
+          return appendNumberAction(key)
+        case "+":
+          return appendOperationAction(OPERATION.ADD)
+        case "-":
+          return appendOperationAction(OPERATION.SUB)
+        case "*":
+          return appendOperationAction(OPERATION.MUL)
+        case "/":
+          return appendOperationAction(OPERATION.DIV)
+        case "=":
+        case "Enter":
+          return equalsAction()
+        case '.':
+          return decimalAction()
+        case "Backspace":
+          return backspaceAction()
+        default:
+          return action
+      }
+    }
+
+    // Tests
+    const runKeyboardTests = () => {
+      const baseTestState = {
+        memory: Big(100),
+        log: [],
+        current: {
+          num: '10',
+          op: OPERATION.INIT
+        },
+        copyTapeResult: COPY_TAPE_RESULT.NONE
+      }
+
+      // Middleware
+      const keyboardHandlerMiddleware_returnsActionIfNotKeyInputAction = () => {
+        // Given
+        const expected = copyTapeAction()
+
+        // When
+        const actual = keyboardHandlerMiddleware(copyTapeAction(), baseTestState, () => { })
+
+        // Then
+        assert(keyboardHandlerMiddleware_returnsActionIfNotKeyInputAction.name, expected, actual)
+      }
+
+      const keyboardHandlerMiddleware_returnsActionIfNotHandledKey = () => {
+        // Given
+        const expected = keyboardInputAction('H')
+
+        // When
+        const actual = keyboardHandlerMiddleware(keyboardInputAction('H'), baseTestState, () => { })
+
+        // Then
+        assert(keyboardHandlerMiddleware_returnsActionIfNotHandledKey.name, expected, actual)
+      }
+
+      const keyboardHandlerMiddleware_returnsAppendNumberForOne = () => {
+        // Given
+        const expected = appendNumberAction('1')
+
+        // When
+        const actual = keyboardHandlerMiddleware(keyboardInputAction('1'), baseTestState, () => { })
+
+        // Then
+        assert(keyboardHandlerMiddleware_returnsAppendNumberForOne.name, expected, actual)
+      }
+
+      const keyboardHandlerMiddleware_returnsAppendNumberForTwo = () => {
+        // Given
+        const expected = appendNumberAction('2')
+
+        // When
+        const actual = keyboardHandlerMiddleware(keyboardInputAction('2'), baseTestState, () => { })
+
+        // Then
+        assert(keyboardHandlerMiddleware_returnsAppendNumberForTwo.name, expected, actual)
+      }
+
+      const keyboardHandlerMiddleware_returnsAppendNumberForThree = () => {
+        // Given
+        const expected = appendNumberAction('3')
+
+        // When
+        const actual = keyboardHandlerMiddleware(keyboardInputAction('3'), baseTestState, () => { })
+
+        // Then
+        assert(keyboardHandlerMiddleware_returnsAppendNumberForThree.name, expected, actual)
+      }
+
+      const keyboardHandlerMiddleware_returnsAppendNumberForFour = () => {
+        // Given
+        const expected = appendNumberAction('4')
+
+        // When
+        const actual = keyboardHandlerMiddleware(keyboardInputAction('4'), baseTestState, () => { })
+
+        // Then
+        assert(keyboardHandlerMiddleware_returnsAppendNumberForFour.name, expected, actual)
+      }
+
+      const keyboardHandlerMiddleware_returnsAppendNumberForFive = () => {
+        // Given
+        const expected = appendNumberAction('5')
+
+        // When
+        const actual = keyboardHandlerMiddleware(keyboardInputAction('5'), baseTestState, () => { })
+
+        // Then
+        assert(keyboardHandlerMiddleware_returnsAppendNumberForFive.name, expected, actual)
+      }
+
+      const keyboardHandlerMiddleware_returnsAppendNumberForSix = () => {
+        // Given
+        const expected = appendNumberAction('6')
+
+        // When
+        const actual = keyboardHandlerMiddleware(keyboardInputAction('6'), baseTestState, () => { })
+
+        // Then
+        assert(keyboardHandlerMiddleware_returnsAppendNumberForSix.name, expected, actual)
+      }
+
+      const keyboardHandlerMiddleware_returnsAppendNumberForSeven = () => {
+        // Given
+        const expected = appendNumberAction('7')
+
+        // When
+        const actual = keyboardHandlerMiddleware(keyboardInputAction('7'), baseTestState, () => { })
+
+        // Then
+        assert(keyboardHandlerMiddleware_returnsAppendNumberForSeven.name, expected, actual)
+      }
+
+      const keyboardHandlerMiddleware_returnsAppendNumberForEight = () => {
+        // Given
+        const expected = appendNumberAction('8')
+
+        // When
+        const actual = keyboardHandlerMiddleware(keyboardInputAction('8'), baseTestState, () => { })
+
+        // Then
+        assert(keyboardHandlerMiddleware_returnsAppendNumberForEight.name, expected, actual)
+      }
+
+      const keyboardHandlerMiddleware_returnsAppendNumberForNine = () => {
+        // Given
+        const expected = appendNumberAction('9')
+
+        // When
+        const actual = keyboardHandlerMiddleware(keyboardInputAction('9'), baseTestState, () => { })
+
+        // Then
+        assert(keyboardHandlerMiddleware_returnsAppendNumberForNine.name, expected, actual)
+      }
+
+      const keyboardHandlerMiddleware_returnsAppendNumberForZero = () => {
+        // Given
+        const expected = appendNumberAction('0')
+
+        // When
+        const actual = keyboardHandlerMiddleware(keyboardInputAction('0'), baseTestState, () => { })
+
+        // Then
+        assert(keyboardHandlerMiddleware_returnsAppendNumberForZero.name, expected, actual)
+      }
+
+      const keyboardHandlerMiddleware_returnsAppendOperationForPlus = () => {
+        // Given
+        const expected = appendOperationAction(OPERATION.ADD)
+
+        // When
+        const actual = keyboardHandlerMiddleware(keyboardInputAction('+'), baseTestState, () => { })
+
+        // Then
+        assert(keyboardHandlerMiddleware_returnsAppendOperationForPlus.name, expected, actual)
+      }
+
+      const keyboardHandlerMiddleware_returnsAppendOperationForMinus = () => {
+        // Given
+        const expected = appendOperationAction(OPERATION.SUB)
+
+        // When
+        const actual = keyboardHandlerMiddleware(keyboardInputAction('-'), baseTestState, () => { })
+
+        // Then
+        assert(keyboardHandlerMiddleware_returnsAppendOperationForMinus.name, expected, actual)
+      }
+
+      const keyboardHandlerMiddleware_returnsAppendOperationForSlash = () => {
+        // Given
+        const expected = appendOperationAction(OPERATION.DIV)
+
+        // When
+        const actual = keyboardHandlerMiddleware(keyboardInputAction('/'), baseTestState, () => { })
+
+        // Then
+        assert(keyboardHandlerMiddleware_returnsAppendOperationForSlash.name, expected, actual)
+      }
+
+      const keyboardHandlerMiddleware_returnsAppendOperationForStar = () => {
+        // Given
+        const expected = appendOperationAction(OPERATION.MUL)
+
+        // When
+        const actual = keyboardHandlerMiddleware(keyboardInputAction('*'), baseTestState, () => { })
+
+        // Then
+        assert(keyboardHandlerMiddleware_returnsAppendOperationForStar.name, expected, actual)
+      }
+
+      const keyboardHandlerMiddleware_returnsEqualsForEquals = () => {
+        // Given
+        const expected = equalsAction()
+
+        // When
+        const actual = keyboardHandlerMiddleware(keyboardInputAction('='), baseTestState, () => { })
+
+        // Then
+        assert(keyboardHandlerMiddleware_returnsEqualsForEquals.name, expected, actual)
+      }
+
+      const keyboardHandlerMiddleware_returnsEqualsForEnter = () => {
+        // Given
+        const expected = equalsAction()
+
+        // When
+        const actual = keyboardHandlerMiddleware(keyboardInputAction('Enter'), baseTestState, () => { })
+
+        // Then
+        assert(keyboardHandlerMiddleware_returnsEqualsForEnter.name, expected, actual)
+      }
+
+      const keyboardHandlerMiddleware_returnsDecimalForPeriod = () => {
+        // Given
+        const expected = decimalAction()
+
+        // When
+        const actual = keyboardHandlerMiddleware(keyboardInputAction('.'), baseTestState, () => { })
+
+        // Then
+        assert(keyboardHandlerMiddleware_returnsDecimalForPeriod.name, expected, actual)
+      }
+
+      const keyboardHandlerMiddleware_returnsBackspaceForBackspace = () => {
+        // Given
+        const expected = backspaceAction()
+
+        // When
+        const actual = keyboardHandlerMiddleware(keyboardInputAction('Backspace'), baseTestState, () => { })
+
+        // Then
+        assert(keyboardHandlerMiddleware_returnsBackspaceForBackspace.name, expected, actual)
+      }
+
+      keyboardHandlerMiddleware_returnsActionIfNotKeyInputAction()
+      keyboardHandlerMiddleware_returnsActionIfNotHandledKey()
+      keyboardHandlerMiddleware_returnsAppendNumberForOne()
+      keyboardHandlerMiddleware_returnsAppendNumberForTwo()
+      keyboardHandlerMiddleware_returnsAppendNumberForThree()
+      keyboardHandlerMiddleware_returnsAppendNumberForFour()
+      keyboardHandlerMiddleware_returnsAppendNumberForFive()
+      keyboardHandlerMiddleware_returnsAppendNumberForSix()
+      keyboardHandlerMiddleware_returnsAppendNumberForSeven()
+      keyboardHandlerMiddleware_returnsAppendNumberForEight()
+      keyboardHandlerMiddleware_returnsAppendNumberForNine()
+      keyboardHandlerMiddleware_returnsAppendNumberForZero()
+      keyboardHandlerMiddleware_returnsAppendOperationForPlus()
+      keyboardHandlerMiddleware_returnsAppendOperationForMinus()
+      keyboardHandlerMiddleware_returnsAppendOperationForSlash()
+      keyboardHandlerMiddleware_returnsAppendOperationForStar()
+      keyboardHandlerMiddleware_returnsEqualsForEquals()
+      keyboardHandlerMiddleware_returnsEqualsForEnter()
+      keyboardHandlerMiddleware_returnsDecimalForPeriod()
+      keyboardHandlerMiddleware_returnsBackspaceForBackspace()
+
+      // Actions
+      const keyboardInputAction_returnsTheCorrectAction = () => {
+        // Given
+        const expected = {type: KEYBOARD_ACTION.KEY_INPUT, payload: {key: 'A'}}
+
+        // When
+        const actual = keyboardInputAction('A')
+
+        // Then
+        assert(keyboardInputAction_returnsTheCorrectAction.name, expected, actual)
+      }
+
+      keyboardInputAction_returnsTheCorrectAction()
+    }
+  </script>
+
+  <script> // Main =======================================================================
+    /**
+     * @typedef {'ADD'|'SUB'|'DIV'|'MUL'|'INIT'|'EQUALS'} Operation
+     **/
+
+    /**
+     * @typedef CalculatorLogItem
+     * @type {object}
+     * @property {BigNumber} num - The number associated with the operation
+     * @property {Operation} op - The operation performed in the running log
+     **/
+
+    /**
+     * @typedef TapeCalcCurrentState
+     * @type {object}
+     * @property {Operation} op - The operation associated with the {num}
+     * @property {string} num - The accumulating calcultor input
+     */
+
+    /**
+     * @typedef TapeCalcState
+     * @type {object}
+     * @property {BigNumber} memory - The value stored in memory
+     * @property {?Array<CalculatorLogItem>} log - The value stored in memory
+     * @property {TapeCalcCurrentState} current - The value stored in memory
+     * @property {CopyTapeResult} copyTapeResult - The Result of the Copy Tape Operation
+     */
+
+    /** @type {TapeCalcState} */
+    const initialState = {
+      memory: Big(0),
+      log: [],
+      current: {
+        num: '',
+        op: OPERATION.INIT
+      },
+      copyTapeResult: COPY_TAPE_RESULT.NONE
+    }
+
+    /** @type Reducer<TapeCalcState> */
     const reducer = {
       decimal: handleDecimal,
       invert: handleInvert,
@@ -755,157 +4448,16 @@
       copyTapeClear: handleCopyTapeClear,
     }
 
-    // Actions
-    const appendNumberAction = (num) => ({type: "appendNumber", payload: {num}})
-    const appendOperationAction = (op) => ({type: "appendOperation", payload: {op}})
-
-    const decimalAction = () => ({type: "decimal"})
-    const invertAction = () => ({type: "invert"})
-    const doubleZeroAction = () => ({type: "doubleZero"})
-    const tripleZeroAction = () => ({type: "tripleZero"})
-    const equalsAction = () => ({type: "equals"})
-
-    const backspaceAction = () => ({type: "backspace"})
-    const clearEntryAction = () => ({type: "clearEntry"})
-    const clearTapeAction = () => ({type: "clearTape"})
-    const clearAllAction = () => ({type: "clearAll"})
-
-    const memoryClearAction = () => ({type: "memoryCle    align-items: center;ar"})
-    const memoryAddAction = () => ({type: "memoryAdd"})
-    const memorySubtractAction = () => ({type: "memorySubtract"})
-    const memoryStoreAction = () => ({type: "memoryStore"})
-    const memoryRecallAction = () => ({type: "memoryRecall"})
-
-    const copyTapeAction = () => ({type: "copyTape"})
-    const copyTapeSuccessAction = () => ({type: "copyTapeSuccess"})
-    const copyTapeErrorAction = () => ({type: "copyTapeError"})
-    const copyTapeClearAction = () => ({type: "copyTapeClear"})
-
-    // Subscribers
-    const numberFormat = (num) => {
-      const numStr = num.toString()
-
-      const [integer, decimal] = numStr.split('.')
-
-      const formattedInteger = integer.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
-
-      return decimal ? `${formattedInteger}.${decimal}` : formattedInteger
-
-      return [formattedInteger, decimal].filter(x => !!x).join('.')
-    }
-
-    const renderCurrent = (state) => {
-      const current = document.getElementById("current")
-      const display = currentDisplayValueSelector(state)
-      current.innerHTML = numberFormat(display)
-    }
-
-    const renderTape = (state, prevState) => {
-      const tapeArea = document.getElementById("tape-area")
-      const tape = document.getElementById("tape")
-      const copyButton = document.getElementById("copy-button")
-
-      const log = logSelector(state)
-      const prevLog = logSelector(prevState)
-
-      const wasCleared = isLogClearedSelector(state)
-      if (wasCleared) {
-        tape.innerHTML = "CLEARED"
-        return
-      }
-
-      const tapeContent = tapeContentSelector(state)
-
-      tape.innerHTML = tapeContent
-
-      if (log !== prevLog) {
-        tapeArea.scrollTo(0, tapeArea.scrollHeight)
-      }
-
-      if (state.copyTapeResult === COPY_TAPE_RESULT.SUCCESS) {
-        copyButton.style.backgroundColor = getComputedStyle(copyButton).getPropertyValue("--color-pop");
-        copyButton.classList.add("copy-button-notification")
-        copyButton.innerHTML = '⧉ - Copied!'
-      } else if (state.copyTapeResult === COPY_TAPE_RESULT.ERROR) {
-        copyButton.style.backgroundColor = getComputedStyle(copyButton).getPropertyValue("--color-error");
-        copyButton.classList.add("copy-button-notification")
-        copyButton.innerHTML = '⧉ - Failed!'
-      } else {
-        copyButton.classList.remove("copy-button-notification")
-        copyButton.style.backgroundColor = getComputedStyle(copyButton).getPropertyValue("--color-container");
-        copyButton.innerHTML = '⧉'
-      }
-    }
-
-    const renderMemory = (state) => {
-      const memory = document.getElementById("memory")
-      const memoryValue = memoryValueSelector(state)
-      memory.innerHTML = "MEM: " + numberFormat(memoryValue)
-    }
-
-    let copyTimeout = null
-    const copyTapeMiddleware = (action, state, dispatch) => {
-      if (action.type === "copyTape") {
-        clearTimeout(copyTimeout)
-        copyTimeout = null
-
-        const tape = tapeContentSelector(state)
-
-        navigator.clipboard.writeText(tape)
-          .then(() => dispatch(copyTapeSuccessAction()))
-          .catch((err) => {
-            console.error('Failed to copy text:', err)
-            dispatch(copyTapeErrorAction())
-          })
-      } else if (action.type === "copyTapeSuccess" || action.type === 'copyTapeError') {
-        clearTimeout(copyTimeout)
-        copyTimeout = setTimeout(() => dispatch(copyTapeClearAction()), 3000)
-      } else if (action.type === "copyTapeClear") {
-        clearTimeout(copyTimeout)
-        copyTimeout = null
-      }
-
-      return action
-    }
-
+    /** @type Array<Subscriber<TapeCalcState>> */
     const subscribers = [renderCurrent, renderTape, renderMemory]
-    const middleware = [copyTapeMiddleware]
+    /** @type Array<Middleware<TapeCalcState>> */
+    const middleware = [keyboardHandlerMiddleware, copyTapeMiddleware]
 
     const store = createStore(initialState, reducer, subscribers, middleware)
 
-    const increment = () => {store.dispatch(incrementAction())}
-
-    renderCurrent(store.getState(), store.getState())
-    renderMemory(store.getState(), store.getState())
-    renderTape(store.getState(), store.getState())
-
-    // Tests
-    const test = () => {
-      const testState = {counter: 0, actions: 0}
-
-      const assert = (func, expected, actual) => {
-        if (actual === expected) {
-          console.log(`${func}: Success!!`)
-        } else {
-          console.error(`${func}: ${actual} !== ${expected}`)
-        }
-      }
-
-      const increment_increases_count = () => {
-        // Given
-        const underTest = createStore(testState, reducer)
-        const expected = 1
-
-        // When
-        underTest.dispatch(incrementAction())
-        const actual = countSelector(underTest.getState())
-
-        // Then
-        assert(increment_increases_count.name, expected, actual)
-      }
-
-      increment_increases_count()
-    }
+    document.addEventListener('keydown', function (event) {
+      store.dispatch(keyboardInputAction(event.key))
+    });
 
     const backspace = () => store.dispatch(backspaceAction())
     const clearAll = () => store.dispatch(clearAllAction())
@@ -918,63 +4470,129 @@
     const invert = () => store.dispatch(invertAction())
     const appendOperation = (op) => store.dispatch(appendOperationAction(op))
     const equals = () => store.dispatch(equalsAction())
+
     const copyTape = () => store.dispatch(copyTapeAction())
+
     const memoryClear = () => store.dispatch(memoryClearAction())
     const memoryRecall = () => store.dispatch(memoryRecallAction())
     const memoryStore = () => store.dispatch(memoryStoreAction())
     const memoryAdd = () => store.dispatch(memoryAddAction())
     const memorySubtract = () => store.dispatch(memorySubtractAction())
 
-    const handleKeyboardEvent = ({key}) => {
-      switch (key) {
-        case '1':
-        case '2':
-        case '3':
-        case '4':
-        case '5':
-        case '6':
-        case '7':
-        case '8':
-        case '9':
-        case '0':
-          store.dispatch(appendNumberAction(key))
-          event.preventDefault()
+  </script>
+
+  <script> // Accent Color ===============================================================
+    const setAccentColor = () => {
+      const search = window.location.search
+      const urlParams = new URLSearchParams(search)
+      const accentParam = urlParams.get('accent')
+
+      let accentColorDark = '#284E13'
+      let accentColorLight = '#93C47D'
+
+      let errorColorDark = '#660000'
+      let errorColorLight = '#EA9999'
+
+      switch (accentParam) {
+        case 'red':
+          accentColorDark = '#660000'
+          accentColorLight = '#EA9999'
+
+          errorColorDark = '#B45F06'
+          errorColorLight = '#F9CB9C'
           break
-        case "+":
-          store.dispatch(appendOperationAction(OPERATION.ADD))
-          event.preventDefault()
+        case 'blue':
+          accentColorDark = '#073763'
+          accentColorLight = '#A4C2F4'
           break
-        case "-":
-          store.dispatch(appendOperationAction(OPERATION.SUB))
-          event.preventDefault()
+        case 'yellow':
+          accentColorDark = '#BF9000'
+          accentColorLight = '#FFE599'
           break
-        case "*":
-          store.dispatch(appendOperationAction(OPERATION.MUL))
-          event.preventDefault()
+        case 'orange':
+          accentColorDark = '#B45F06'
+          accentColorLight = '#F9CB9C'
           break
-        case "/":
-          store.dispatch(appendOperationAction(OPERATION.DIV))
-          event.preventDefault()
+        case 'purple':
+          accentColorDark = '#351C75'
+          accentColorLight = '#B4A7D6'
           break
-        case "=":
-        case "Enter":
-          store.dispatch(equalsAction())
-          event.preventDefault()
+        case 'pink':
+          accentColorDark = '#A64D79'
+          accentColorLight = '#D5A6BD'
           break
-        case '.':
-          store.dispatch(decimalAction())
-          event.preventDefault()
+        case 'grey':
+          accentColorDark = '#666666'
+          accentColorLight = '#F3F3F3'
           break
-        case "Backspace":
-          store.dispatch(backspaceAction())
-          event.preventDefault()
+        case 'green':
+        default:
           break
+      }
+
+      document.documentElement.style.setProperty('--color-pop-container', `light-dark(${accentColorLight}, ${accentColorDark})`);
+      document.documentElement.style.setProperty('--color-pop', `light-dark(${accentColorDark}, ${accentColorLight})`);
+      document.documentElement.style.setProperty('--color-error', `light-dark(${errorColorLight}, ${errorColorDark})`);
+    }
+    setAccentColor()
+  </script>
+
+  <script>
+    const search = window.location.search
+    const urlParams = new URLSearchParams(search)
+    const hideInfo = urlParams.get('hideInfo') === 'true'
+
+    if (hideInfo) {
+      document.querySelector('footer').style = 'display: none'
+    }
+  </script>
+
+  <script> // Tests ======================================================================
+    const deepEquals = (obj1, obj2) => {
+      if (obj1 === obj2) return true
+
+      if (typeof obj1 !== 'object' || obj1 === null ||
+        typeof obj2 !== 'object' || obj2 === null) {
+        return false
+      }
+
+      const keys1 = Object.keys(obj1)
+      const keys2 = Object.keys(obj2)
+
+      if (keys1.length !== keys2.length) return false
+
+      for (const key of keys1) {
+        if (!keys2.includes(key) || !deepEquals(obj1[key], obj2[key])) {
+          return false
+        }
+      }
+      return true
+    }
+
+    const assert = (func, expected, actual) => {
+      if (deepEquals(actual, expected)) {
+        console.log(`${func}: Success!!`)
+      } else {
+        console.error(`${func}: ${actual} !== ${expected}`)
+        console.log(actual)
+        console.log(expected)
       }
     }
 
-    document.addEventListener('keydown', function (event) {
-      handleKeyboardEvent(event)
-    });
+    const runTests = () => {
+      console.log("\nUtil Tests")
+      runUtilTests()
+      console.log("\nCalculator Tests")
+      runCalulatorTests()
+      console.log("\nMemory Tests")
+      runMemoryTests()
+      console.log("\nCopy Tape Tests")
+      runCopyTapeTests()
+      console.log("\nCalulatorTests Tests")
+      runKeyboardTests()
+    }
+    runTests()
+
   </script>
 </body>
 

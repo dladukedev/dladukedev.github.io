@@ -1,3 +1,5 @@
+<!-- MIT License - Copyright (c) 2025 Donovan J LaDuke -->
+
 <!DOCTYPE html>
 <html lang="en">
 
@@ -5,9 +7,52 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Donovan LaDuke - Micro-Projects</title>
+  <link rel="shortcut icon"
+    href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' height='24px' viewBox='0 -960 960 960' width='24px' fill='%23e3e3e3'%3E%3Cpath d='M40-120v-80h880v80H40Zm120-120q-33 0-56.5-23.5T80-320v-440q0-33 23.5-56.5T160-840h640q33 0 56.5 23.5T880-760v440q0 33-23.5 56.5T800-240H160Zm0-80h640v-440H160v440Zm0 0v-440 440Z'/%3E%3C/svg%3E%0A">
+
   <style>
     * {
+      margin: 0;
+      padding: 0;
       font-family: 'Arial';
+      box-sizing: border-box;
+    }
+
+    :root {
+      color-scheme: light dark;
+      --color-background: light-dark(#FFFFFF, #000000);
+      --color-highlight: light-dark(#F3F3F3, #121212);
+      --color-container: light-dark(#EFEFEF, #222222);
+      --color-container-highlight: light-dark(#D9D9D9, #333333);
+      --color-pop-container: light-dark(#93C47D, #284E13);
+      --color-pop: light-dark(#284E13, #93C47D);
+      --color-content: light-dark(#1F1F1F, #FFFFFF);
+      --color-content-secondary: light-dark(#333333, #CCCCCC);
+      --color-error: light-dark(#EA9999, #660000);
+    }
+
+    body {
+      margin: 32px;
+      background-color: var(--color-background);
+      color: var(--color-content);
+    }
+
+    a {
+      color: var(--color-pop);
+    }
+
+    ul {
+      margin: 32px 16px;
+    }
+
+    li {
+      color: var(--color-content-secondary);
+    }
+
+    footer {
+      ul {
+        margin: 0 16px;
+      }
     }
   </style>
 </head>
@@ -20,7 +65,94 @@
     <li><a href="./projects/planner-calendar/index.html">Planner Calendar</a> - Shows 5 weeks of a calendar specified
       using query parameters, removing the first week if necessary and will fit on a 8.5x11" landscape page when printed
     </li>
+    <br>
+
+    <li><a href="./projects/tape-calculator/index.html">Tape Calculator</a> - Calculator with a running "tape" that can
+      be copied and easily pasted into other software to display right aligned calculations
+    </li>
+    <br>
+
+    <li><a href="./projects/interval-timer/index.html">Interval Timer</a> - Ad Free interval timer, defaults to tabata
+      timer but can be completely configured using query parameters
+    </li>
   </ul>
+
+  <footer>
+    <p>What is a micro-project?</p>
+    <ul>
+      <li>Portable - Single File, No External Dependencies
+      <li>Source Code Available - Open Source, No Obfuscation
+      <li>Documented - Typed with JS Docs, Covered by Tests
+    </ul>
+    <br />
+    <p>Additional Features</p>
+    <ul>
+      <li>Simple Config - All Configuration Driven via Query Params for easy bookmarking
+      <li>Custom Accent - Every page supports a dynamic accent color, use the <b>accent</b> query parameter - try red,
+        orange, yellow, green (default), blue, purple, pink, or grey
+      <li>Free as in Freedom - No ads, No micro-transactions, No subscriptions, No tracking, No data collection
+    </ul>
+    <br />
+    <p>Did you find this helpful? Buy me a coffee - <a href="https://ko-fi.com/donovanjladuke">Ko-fi</a></p>
+    <br />
+    <p>Donovan LaDuke 2025 - <a href="https://opensource.org/license/mit">MIT License</a></p>
+  </footer>
+
+  <script> // Accent Color ===============================================================
+    const setAccentColor = () => {
+      const search = window.location.search
+      const urlParams = new URLSearchParams(search)
+      const accentParam = urlParams.get('accent')
+
+      let accentColorDark = '#284E13'
+      let accentColorLight = '#93C47D'
+
+      let errorColorDark = '#660000'
+      let errorColorLight = '#EA9999'
+
+      switch (accentParam) {
+        case 'red':
+          accentColorDark = '#660000'
+          accentColorLight = '#EA9999'
+
+          errorColorDark = '#B45F06'
+          errorColorLight = '#F9CB9C'
+          break
+        case 'blue':
+          accentColorDark = '#073763'
+          accentColorLight = '#A4C2F4'
+          break
+        case 'yellow':
+          accentColorDark = '#BF9000'
+          accentColorLight = '#FFE599'
+          break
+        case 'orange':
+          accentColorDark = '#B45F06'
+          accentColorLight = '#F9CB9C'
+          break
+        case 'purple':
+          accentColorDark = '#351C75'
+          accentColorLight = '#B4A7D6'
+          break
+        case 'pink':
+          accentColorDark = '#A64D79'
+          accentColorLight = '#D5A6BD'
+          break
+        case 'grey':
+          accentColorDark = '#666666'
+          accentColorLight = '#F3F3F3'
+          break
+        case 'green':
+        default:
+          break
+      }
+
+      document.documentElement.style.setProperty('--color-pop-container', `light-dark(${accentColorLight}, ${accentColorDark})`);
+      document.documentElement.style.setProperty('--color-pop', `light-dark(${accentColorDark}, ${accentColorLight})`);
+      document.documentElement.style.setProperty('--color-error', `light-dark(${errorColorLight}, ${errorColorDark})`);
+    }
+    setAccentColor()
+  </script>
 </body>
 
 </html>

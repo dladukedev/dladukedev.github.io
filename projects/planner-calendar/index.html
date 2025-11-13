@@ -1,16 +1,42 @@
+<!-- MIT License - Copyright (c) 2025 Donovan J LaDuke -->
+
 <!DOCTYPE html>
 <html lang="en">
 
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Calendar</title>
+  <title>Planner Calendar</title>
+  <link rel="shortcut icon"
+    href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' height='24px' viewBox='0 -960 960 960' width='24px' fill='%23e3e3e3'%3E%3Cpath d='M200-80q-33 0-56.5-23.5T120-160v-560q0-33 23.5-56.5T200-800h40v-80h80v80h320v-80h80v80h40q33 0 56.5 23.5T840-720v560q0 33-23.5 56.5T760-80H200Zm0-80h560v-400H200v400Zm0-480h560v-80H200v80Zm0 0v-80 80Z'/%3E%3C/svg%3E">
+
   <style>
     * {
       margin: 0;
       padding: 0;
       font-family: 'Arial';
       box-sizing: border-box;
+    }
+
+    :root {
+      color-scheme: light dark;
+      --color-background: light-dark(#FFFFFF, #000000);
+      --color-highlight: light-dark(#F3F3F3, #121212);
+      --color-container: light-dark(#EFEFEF, #222222);
+      --color-container-highlight: light-dark(#D9D9D9, #333333);
+      --color-pop-container: light-dark(#93C47D, #284E13);
+      --color-pop: light-dark(#284E13, #93C47D);
+      --color-content: light-dark(#1F1F1F, #FFFFFF);
+      --color-content-secondary: light-dark(#333333, #CCCCCC);
+      --color-error: light-dark(#EA9999, #660000);
+
+      --calendar-margin: 0.5in;
+      --calendar-box-height: 1.2in;
+      --calendar-box-width: 1.4in;
+    }
+
+    a {
+      color: var(--color-pop);
     }
 
     @media print {
@@ -24,18 +50,18 @@
     }
 
     body {
-      padding: .2in .5in;
+      padding: var(--calendar-margin);
     }
 
     h1 {
       font-size: .4in;
-      margin-bottom: .08in;
+      margin-bottom: .1in;
     }
 
     table,
     th,
     td {
-      border: 1px solid black;
+      border: 1px solid var(--color-content);
     }
 
     table {
@@ -49,25 +75,26 @@
     td {
       font-weight: bold;
       padding: .05in;
-      width: 1.4in;
-      height: 1.2in;
+      width: var(--calendar-box-width);
+      height: var(--calendar-box-height);
       vertical-align: top;
     }
 
     td.other-month {
-      color: dimgray;
+      color: var(--color-content-secondary);
     }
 
     footer {
-      margin: 8px 0;
-    }
+      margin: 16px 0;
 
-    footer>ul {
-      margin-left: 8px;
-    }
+      ul {
+        color: var(--color-content-secondary);
+        margin-left: 8px;
 
-    footer>ul>li {
-      margin-left: 8px;
+        li {
+          margin-left: 8px;
+        }
+      }
     }
   </style>
 </head>
@@ -82,16 +109,23 @@
   </table>
 
   <footer>
-    <h3>Planner Calendar Generator</h3>
+    <h3>Planner Calendar</h3>
     <br />
     <p>This calendar only ever shows 5 weeks, removing the first week if necessary and will fit on a 8.5x11" landscape
-      page when printed</p>
+      page when printed by default</p>
     <br />
     <p>To render a specific calendar, use the relevant query params</p>
     <ul>
-      <li>"month" for the month, starting with 1 for January (e.g. "month=6")
-      <li>"year" for the year (e.g. "year=2025")</li>
-      <li>"day" for the day of the week to start the week, starting with 1 for Sunday (e.g. "day=0")</li>
+      <li>"month" for the month, starting with 1 for January, defaults to current month (e.g. "month=6")
+      <li>"year" for the year, defaults to current year (e.g. "year=2025")</li>
+      <li>"day" for the day of the week to start the week, starting with 1 for Sunday, defaults to 1 (e.g. "day=1")</li>
+    </ul>
+    <br />
+    <p>To render in specific dimensions, use these query params</p>
+    <ul>
+      <li>"height" the overall height of the paper, defaults to 8.5 (e.g. "height=8")
+      <li>"width" the overall width of the paper, defaults to 11 (e.g. "year=10")</li>
+      <li>"margin" the space in inches around the calendar, defaults to 0.5 (e.g. "margin=1")</li>
     </ul>
     <br />
     <p>This is a micro-project, check the source to see the code and do what you want with it!</p>
@@ -102,16 +136,6 @@
   </footer>
 
   <script>
-    /*
-      Copyright 2025 Donovan LaDuke
-
-      Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the “Software”), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-      The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-      THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-    */
-
     /**
      * @typedef RequestCalendar
      * @type {object}
@@ -142,6 +166,14 @@
      * @property {string} headerHtml - The HTML for the header
      * @property {string} daysHtml - The HTML for the days of the week
      * @property {string} weeksHtml - The HTML for the dates
+     */
+
+    /**
+     * @typedef Dimensions
+     * @type {object}
+     * @property {number} height - The overall height of the page
+     * @property {number} width - The overall width of the page
+     * @property {number} margin - The margin on all sides of the page
      */
 
     /**
@@ -309,13 +341,13 @@
     /**
      * Update the calendar displayed
      * @param {() => RequestCalendar} getRequestCalendar - Get the requested calendar information
-     * @param {(calendarHtml: CalendarHtml) => void} updateCalendarUi - update the calendar UI
+     * @returns {CalendarHtml} the calendar HTML values
      */
-    const updateCalendar = (getRequestCalendar, updateCalendarUi) => {
+    const getCalendarHtml = (getRequestCalendar) => {
       const calendar = getRequestCalendar()
       const calendarModel = buildCalendarModel(calendar)
       const calendarHtml = buildCalendarHtml(calendarModel)
-      updateCalendarUi(calendarHtml)
+      return calendarHtml
     }
 
     /**
@@ -342,7 +374,7 @@
 
       const parsedYear = parseInt(yearParam)
 
-      const isValid = !isNaN(parsedYear) && parsedYear >= 0
+      const isValid = !isNaN(parsedYear) && parsedYear >= 1900
       return isValid ? parsedYear : null
     }
 
@@ -368,34 +400,535 @@
     /**
      * Parse the requested calendar from the query parameters
      * @param {() => Date} [getNow] - Function to get the current date
+     * @param {string} [search] - the search string from the url
      * @returns {RequestCalendar} - The requested calendar
      */
-    const getCalendarFromParams = (getNow = getDateNow) => {
+    const getCalendarFromParams = (getNow = getDateNow, search = window.location.search) => {
       const now = getNow()
-      const urlParams = new URLSearchParams(window.location.search);
-      const monthParam = urlParams.get('month');
-      const yearParam = urlParams.get('year');
-      const startDayParam = urlParams.get('day');
+      const urlParams = new URLSearchParams(search)
+      const monthParam = urlParams.get('month')
+      const yearParam = urlParams.get('year')
+      const startDayParam = urlParams.get('day')
 
-      const month = parseMonth(monthParam) || now.getMonth()
-      const year = parseYear(yearParam) || now.getFullYear()
-      const startDay = parseStartDay(startDayParam) || 0 // Sunday Default
+      const month = parseMonth(monthParam) ?? now.getMonth()
+      const year = parseYear(yearParam) ?? now.getFullYear()
+      const startDay = parseStartDay(startDayParam) ?? 0 // Sunday Default
 
       return {month, year, startDay}
     }
 
     /**
+     * Parse the requested dimensions from the query parameters
+     * @param {string} [search] - the search string from the url
+     * @returns {Dimensions} - The requested calendar
+     */
+    const getDimensionsFromParams = (search = window.location.search) => {
+      const urlParams = new URLSearchParams(search)
+      const heightParam = urlParams.get('height') ?? "8.5"
+      const widthParam = urlParams.get('width') ?? "11"
+      const marginParam = urlParams.get('margin') ?? "0.5"
+
+      const height = parseFloat(heightParam)
+      const width = parseFloat(widthParam)
+      const margin = parseFloat(marginParam)
+
+      return {height, width, margin}
+    }
+
+    /**
+     * Update the calendar dimensions
+     * @param {() => Dimensions} getDimensions - Get the requested calendar dimensions
+     * @returns {Dimensions} The Calendar box dimensions and margin
+     */
+    const getCalendarDimensions = (getDimensions) => {
+      const {height, width, margin} = getDimensions()
+
+      const heightBorderAccomodation = .1
+      const headerHeight = 0.2 + 0.5
+      const availableHeight = height - (margin * 2) - headerHeight - heightBorderAccomodation
+      const boxHeight = availableHeight / 5
+
+      const widthBorderAccomodation = .1
+      const availableWidth = width - (margin * 2)
+      const boxWidth = availableWidth / 7
+
+      return {height: boxHeight, width: boxWidth, margin}
+    }
+
+    /**
      * Render the HTML for the calendar into the relevant parts of the DOM
      * @param {CalendarHtml} calendarHtml - the calendar html to render
+     * @param {Dimensions} dimensions - the calendar layout dimensions
      */
-    const updateCalendarUi = (calendarHtml) => {
+    const updateCalendarUi = (calendarHtml, dimensions) => {
       document.getElementById('header').innerHTML = calendarHtml.headerHtml
       document.getElementById('calendarBody').innerHTML = calendarHtml.weeksHtml
       document.getElementById('calendarHeader').innerHTML = calendarHtml.daysHtml
+
+      document.documentElement.style.setProperty('--calendar-margin', `${dimensions.margin}in`);
+      document.documentElement.style.setProperty('--calendar-box-height', `${dimensions.height}in`);
+      document.documentElement.style.setProperty('--calendar-box-width', `${dimensions.width}in`);
+    }
+
+    /**
+     * Update the Calendar UI Based on the Query Params
+     * @param {() => CalendarModel} getCalendar - Gets the requested calendar information
+     * @param {() => Dimensions} getDimensions - Get the requested calendar dimensions
+     */
+    const updateCalendar = (getCalendar = getCalendarFromParams, getDimensions = getDimensionsFromParams) => {
+      const calendarHtml = getCalendarHtml(getCalendar)
+      const dimensions = getCalendarDimensions(getDimensions)
+      updateCalendarUi(calendarHtml, dimensions)
     }
 
     // On load immediately run the update to render the calendar
-    updateCalendar(getCalendarFromParams, updateCalendarUi)
+    updateCalendar()
+  </script>
+
+  <script>
+    const setAccentColor = () => {
+      const search = window.location.search
+      const urlParams = new URLSearchParams(search)
+      const accentParam = urlParams.get('accent')
+
+      let accentColorDark = '#284E13'
+      let accentColorLight = '#93C47D'
+
+      let errorColorDark = '#660000'
+      let errorColorLight = '#EA9999'
+
+      switch (accentParam) {
+        case 'red':
+          accentColorDark = '#660000'
+          accentColorLight = '#EA9999'
+
+          errorColorDark = '#B45F06'
+          errorColorLight = '#F9CB9C'
+          break
+        case 'blue':
+          accentColorDark = '#073763'
+          accentColorLight = '#A4C2F4'
+          break
+        case 'yellow':
+          accentColorDark = '#BF9000'
+          accentColorLight = '#FFE599'
+          break
+        case 'orange':
+          accentColorDark = '#B45F06'
+          accentColorLight = '#F9CB9C'
+          break
+        case 'purple':
+          accentColorDark = '#351C75'
+          accentColorLight = '#B4A7D6'
+          break
+        case 'pink':
+          accentColorDark = '#A64D79'
+          accentColorLight = '#D5A6BD'
+          break
+        case 'grey':
+          accentColorDark = '#666666'
+          accentColorLight = '#F3F3F3'
+          break
+        case 'green':
+        default:
+          break
+      }
+
+      document.documentElement.style.setProperty('--color-pop-container', `light-dark(${accentColorLight}, ${accentColorDark})`);
+      document.documentElement.style.setProperty('--color-pop', `light-dark(${accentColorDark}, ${accentColorLight})`);
+      document.documentElement.style.setProperty('--color-error', `light-dark(${errorColorLight}, ${errorColorDark})`);
+    }
+    setAccentColor()
+  </script>
+
+  <script>
+    const search = window.location.search
+    const urlParams = new URLSearchParams(search)
+    const hideInfo = urlParams.get('hideInfo') === 'true'
+
+    if (hideInfo) {
+      document.querySelector('footer').style = 'display: none'
+    }
+  </script>
+
+  <script>
+    // Testing
+    const deepEquals = (obj1, obj2) => {
+      if (obj1 === obj2) return true
+
+      if (typeof obj1 !== 'object' || obj1 === null ||
+        typeof obj2 !== 'object' || obj2 === null) {
+        return false
+      }
+
+      const keys1 = Object.keys(obj1)
+      const keys2 = Object.keys(obj2)
+
+      if (keys1.length !== keys2.length) return false
+
+      for (const key of keys1) {
+        if (!keys2.includes(key) || !deepEquals(obj1[key], obj2[key])) {
+          return false
+        }
+      }
+      return true
+    }
+
+    const assert = (func, expected, actual) => {
+      if (deepEquals(actual, expected)) {
+        console.log(`${func}: Success!!`)
+      } else {
+        console.error(`${func}: ${actual} !== ${expected}`)
+      }
+    }
+
+    const runTests = () => {
+      // Week Count Tests
+      const monthWith5Weeks_printsWholeMonth = () => {
+        // Given
+        let expected = {
+          daysHtml: "<tr><th>Sunday</th><th>Monday</th><th>Tuesday</th><th>Wednesday</th><th>Thursday</th><th>Friday</th><th>Saturday</th></tr>",
+          headerHtml: "March 2026",
+          weeksHtml: "<tr><td class=\"date\">1</td><td class=\"date\">2</td><td class=\"date\">3</td><td class=\"date\">4</td><td class=\"date\">5</td><td class=\"date\">6</td><td class=\"date\">7</td></tr><tr><td class=\"date\">8</td><td class=\"date\">9</td><td class=\"date\">10</td><td class=\"date\">11</td><td class=\"date\">12</td><td class=\"date\">13</td><td class=\"date\">14</td></tr><tr><td class=\"date\">15</td><td class=\"date\">16</td><td class=\"date\">17</td><td class=\"date\">18</td><td class=\"date\">19</td><td class=\"date\">20</td><td class=\"date\">21</td></tr><tr><td class=\"date\">22</td><td class=\"date\">23</td><td class=\"date\">24</td><td class=\"date\">25</td><td class=\"date\">26</td><td class=\"date\">27</td><td class=\"date\">28</td></tr><tr><td class=\"date\">29</td><td class=\"date\">30</td><td class=\"date\">31</td><td class=\"date other-month\">1</td><td class=\"date other-month\">2</td><td class=\"date other-month\">3</td><td class=\"date other-month\">4</td></tr>",
+        }
+        const mockGetRequestCalendar = () => ({month: 2, year: 2026, startDay: 0})
+
+        // When
+        const actual = getCalendarHtml(mockGetRequestCalendar)
+
+        // Then
+        assert(monthWith5Weeks_printsWholeMonth.name, actual, expected)
+      }
+
+      const monthWith4Weeks_printsWholeWeekOfFollowingMonth = () => {
+        // Given
+        let expected = {
+          daysHtml: "<tr><th>Sunday</th><th>Monday</th><th>Tuesday</th><th>Wednesday</th><th>Thursday</th><th>Friday</th><th>Saturday</th></tr>",
+          headerHtml: "February 2026",
+          weeksHtml: "<tr><td class=\"date\">1</td><td class=\"date\">2</td><td class=\"date\">3</td><td class=\"date\">4</td><td class=\"date\">5</td><td class=\"date\">6</td><td class=\"date\">7</td></tr><tr><td class=\"date\">8</td><td class=\"date\">9</td><td class=\"date\">10</td><td class=\"date\">11</td><td class=\"date\">12</td><td class=\"date\">13</td><td class=\"date\">14</td></tr><tr><td class=\"date\">15</td><td class=\"date\">16</td><td class=\"date\">17</td><td class=\"date\">18</td><td class=\"date\">19</td><td class=\"date\">20</td><td class=\"date\">21</td></tr><tr><td class=\"date\">22</td><td class=\"date\">23</td><td class=\"date\">24</td><td class=\"date\">25</td><td class=\"date\">26</td><td class=\"date\">27</td><td class=\"date\">28</td></tr><tr><td class=\"date other-month\">1</td><td class=\"date other-month\">2</td><td class=\"date other-month\">3</td><td class=\"date other-month\">4</td><td class=\"date other-month\">5</td><td class=\"date other-month\">6</td><td class=\"date other-month\">7</td></tr>",
+        }
+        const mockGetRequestCalendar = () => ({month: 1, year: 2026, startDay: 0})
+
+        // When
+        const actual = getCalendarHtml(mockGetRequestCalendar)
+
+        // Then
+        assert(monthWith4Weeks_printsWholeWeekOfFollowingMonth.name, actual, expected)
+      }
+
+      const monthWith6Weeks_cutsOffFirstWeek = () => {
+        // Given
+        let expected = {
+          daysHtml: "<tr><th>Sunday</th><th>Monday</th><th>Tuesday</th><th>Wednesday</th><th>Thursday</th><th>Friday</th><th>Saturday</th></tr>",
+          headerHtml: "May 2026",
+          weeksHtml: "<tr><td class=\"date\">3</td><td class=\"date\">4</td><td class=\"date\">5</td><td class=\"date\">6</td><td class=\"date\">7</td><td class=\"date\">8</td><td class=\"date\">9</td></tr><tr><td class=\"date\">10</td><td class=\"date\">11</td><td class=\"date\">12</td><td class=\"date\">13</td><td class=\"date\">14</td><td class=\"date\">15</td><td class=\"date\">16</td></tr><tr><td class=\"date\">17</td><td class=\"date\">18</td><td class=\"date\">19</td><td class=\"date\">20</td><td class=\"date\">21</td><td class=\"date\">22</td><td class=\"date\">23</td></tr><tr><td class=\"date\">24</td><td class=\"date\">25</td><td class=\"date\">26</td><td class=\"date\">27</td><td class=\"date\">28</td><td class=\"date\">29</td><td class=\"date\">30</td></tr><tr><td class=\"date\">31</td><td class=\"date other-month\">1</td><td class=\"date other-month\">2</td><td class=\"date other-month\">3</td><td class=\"date other-month\">4</td><td class=\"date other-month\">5</td><td class=\"date other-month\">6</td></tr>",
+        }
+        const mockGetRequestCalendar = () => ({month: 4, year: 2026, startDay: 0})
+
+        // When
+        const actual = getCalendarHtml(mockGetRequestCalendar)
+
+        // Then
+        assert(monthWith6Weeks_cutsOffFirstWeek.name, actual, expected)
+      }
+
+      console.log("\nWeek Count Tests")
+      monthWith5Weeks_printsWholeMonth()
+      monthWith4Weeks_printsWholeWeekOfFollowingMonth()
+      monthWith6Weeks_cutsOffFirstWeek()
+
+
+      // Different Start Date Tests
+      const sundayStart_ordersDatesCorrectly = () => {
+        // Given
+        let expected = {
+          daysHtml: "<tr><th>Sunday</th><th>Monday</th><th>Tuesday</th><th>Wednesday</th><th>Thursday</th><th>Friday</th><th>Saturday</th></tr>",
+          headerHtml: "January 2026",
+          weeksHtml: "<tr><td class=\"date other-month\">28</td><td class=\"date other-month\">29</td><td class=\"date other-month\">30</td><td class=\"date other-month\">31</td><td class=\"date\">1</td><td class=\"date\">2</td><td class=\"date\">3</td></tr><tr><td class=\"date\">4</td><td class=\"date\">5</td><td class=\"date\">6</td><td class=\"date\">7</td><td class=\"date\">8</td><td class=\"date\">9</td><td class=\"date\">10</td></tr><tr><td class=\"date\">11</td><td class=\"date\">12</td><td class=\"date\">13</td><td class=\"date\">14</td><td class=\"date\">15</td><td class=\"date\">16</td><td class=\"date\">17</td></tr><tr><td class=\"date\">18</td><td class=\"date\">19</td><td class=\"date\">20</td><td class=\"date\">21</td><td class=\"date\">22</td><td class=\"date\">23</td><td class=\"date\">24</td></tr><tr><td class=\"date\">25</td><td class=\"date\">26</td><td class=\"date\">27</td><td class=\"date\">28</td><td class=\"date\">29</td><td class=\"date\">30</td><td class=\"date\">31</td></tr>"
+        }
+        const mockGetRequestCalendar = () => ({month: 0, year: 2026, startDay: 0})
+
+        // When
+        const actual = getCalendarHtml(mockGetRequestCalendar)
+
+        // Then
+        assert(sundayStart_ordersDatesCorrectly.name, actual, expected)
+      }
+
+      const mondayStart_ordersDatesCorrectly = () => {
+        // Given
+        let expected = {
+          daysHtml: "<tr><th>Monday</th><th>Tuesday</th><th>Wednesday</th><th>Thursday</th><th>Friday</th><th>Saturday</th><th>Sunday</th></tr>",
+          headerHtml: "January 2026",
+          weeksHtml: "<tr><td class=\"date other-month\">29</td><td class=\"date other-month\">30</td><td class=\"date other-month\">31</td><td class=\"date\">1</td><td class=\"date\">2</td><td class=\"date\">3</td><td class=\"date\">4</td></tr><tr><td class=\"date\">5</td><td class=\"date\">6</td><td class=\"date\">7</td><td class=\"date\">8</td><td class=\"date\">9</td><td class=\"date\">10</td><td class=\"date\">11</td></tr><tr><td class=\"date\">12</td><td class=\"date\">13</td><td class=\"date\">14</td><td class=\"date\">15</td><td class=\"date\">16</td><td class=\"date\">17</td><td class=\"date\">18</td></tr><tr><td class=\"date\">19</td><td class=\"date\">20</td><td class=\"date\">21</td><td class=\"date\">22</td><td class=\"date\">23</td><td class=\"date\">24</td><td class=\"date\">25</td></tr><tr><td class=\"date\">26</td><td class=\"date\">27</td><td class=\"date\">28</td><td class=\"date\">29</td><td class=\"date\">30</td><td class=\"date\">31</td><td class=\"date other-month\">1</td></tr>"
+        }
+        const mockGetRequestCalendar = () => ({month: 0, year: 2026, startDay: 1})
+
+        // When
+        const actual = getCalendarHtml(mockGetRequestCalendar)
+
+        // Then
+        assert(mondayStart_ordersDatesCorrectly.name, actual, expected)
+      }
+
+      const tuesdayStart_ordersDatesCorrectly = () => {
+        // Given
+        let expected = {
+          daysHtml: "<tr><th>Tuesday</th><th>Wednesday</th><th>Thursday</th><th>Friday</th><th>Saturday</th><th>Sunday</th><th>Monday</th></tr>",
+          headerHtml: "January 2026",
+          weeksHtml: "<tr><td class=\"date other-month\">30</td><td class=\"date other-month\">31</td><td class=\"date\">1</td><td class=\"date\">2</td><td class=\"date\">3</td><td class=\"date\">4</td><td class=\"date\">5</td></tr><tr><td class=\"date\">6</td><td class=\"date\">7</td><td class=\"date\">8</td><td class=\"date\">9</td><td class=\"date\">10</td><td class=\"date\">11</td><td class=\"date\">12</td></tr><tr><td class=\"date\">13</td><td class=\"date\">14</td><td class=\"date\">15</td><td class=\"date\">16</td><td class=\"date\">17</td><td class=\"date\">18</td><td class=\"date\">19</td></tr><tr><td class=\"date\">20</td><td class=\"date\">21</td><td class=\"date\">22</td><td class=\"date\">23</td><td class=\"date\">24</td><td class=\"date\">25</td><td class=\"date\">26</td></tr><tr><td class=\"date\">27</td><td class=\"date\">28</td><td class=\"date\">29</td><td class=\"date\">30</td><td class=\"date\">31</td><td class=\"date other-month\">1</td><td class=\"date other-month\">2</td></tr>",
+        }
+        const mockGetRequestCalendar = () => ({month: 0, year: 2026, startDay: 2})
+
+        // When
+        const actual = getCalendarHtml(mockGetRequestCalendar)
+
+        // Then
+        assert(tuesdayStart_ordersDatesCorrectly.name, actual, expected)
+      }
+
+      const wednesdayStart_ordersDatesCorrectly = () => {
+        // Given
+        let expected = {
+          daysHtml: "<tr><th>Wednesday</th><th>Thursday</th><th>Friday</th><th>Saturday</th><th>Sunday</th><th>Monday</th><th>Tuesday</th></tr>",
+          headerHtml: "January 2026",
+          weeksHtml: "<tr><td class=\"date other-month\">31</td><td class=\"date\">1</td><td class=\"date\">2</td><td class=\"date\">3</td><td class=\"date\">4</td><td class=\"date\">5</td><td class=\"date\">6</td></tr><tr><td class=\"date\">7</td><td class=\"date\">8</td><td class=\"date\">9</td><td class=\"date\">10</td><td class=\"date\">11</td><td class=\"date\">12</td><td class=\"date\">13</td></tr><tr><td class=\"date\">14</td><td class=\"date\">15</td><td class=\"date\">16</td><td class=\"date\">17</td><td class=\"date\">18</td><td class=\"date\">19</td><td class=\"date\">20</td></tr><tr><td class=\"date\">21</td><td class=\"date\">22</td><td class=\"date\">23</td><td class=\"date\">24</td><td class=\"date\">25</td><td class=\"date\">26</td><td class=\"date\">27</td></tr><tr><td class=\"date\">28</td><td class=\"date\">29</td><td class=\"date\">30</td><td class=\"date\">31</td><td class=\"date other-month\">1</td><td class=\"date other-month\">2</td><td class=\"date other-month\">3</td></tr>",
+        }
+        const mockGetRequestCalendar = () => ({month: 0, year: 2026, startDay: 3})
+
+        // When
+        const actual = getCalendarHtml(mockGetRequestCalendar)
+
+        // Then
+        assert(wednesdayStart_ordersDatesCorrectly.name, actual, expected)
+      }
+
+      const thursdayStart_ordersDatesCorrectly = () => {
+        // Given
+        let expected = {
+          daysHtml: "<tr><th>Thursday</th><th>Friday</th><th>Saturday</th><th>Sunday</th><th>Monday</th><th>Tuesday</th><th>Wednesday</th></tr>",
+          headerHtml: "January 2026",
+          weeksHtml: "<tr><td class=\"date\">1</td><td class=\"date\">2</td><td class=\"date\">3</td><td class=\"date\">4</td><td class=\"date\">5</td><td class=\"date\">6</td><td class=\"date\">7</td></tr><tr><td class=\"date\">8</td><td class=\"date\">9</td><td class=\"date\">10</td><td class=\"date\">11</td><td class=\"date\">12</td><td class=\"date\">13</td><td class=\"date\">14</td></tr><tr><td class=\"date\">15</td><td class=\"date\">16</td><td class=\"date\">17</td><td class=\"date\">18</td><td class=\"date\">19</td><td class=\"date\">20</td><td class=\"date\">21</td></tr><tr><td class=\"date\">22</td><td class=\"date\">23</td><td class=\"date\">24</td><td class=\"date\">25</td><td class=\"date\">26</td><td class=\"date\">27</td><td class=\"date\">28</td></tr><tr><td class=\"date\">29</td><td class=\"date\">30</td><td class=\"date\">31</td><td class=\"date other-month\">1</td><td class=\"date other-month\">2</td><td class=\"date other-month\">3</td><td class=\"date other-month\">4</td></tr>",
+        }
+        const mockGetRequestCalendar = () => ({month: 0, year: 2026, startDay: 4})
+
+        // When
+        const actual = getCalendarHtml(mockGetRequestCalendar)
+
+        // Then
+        assert(thursdayStart_ordersDatesCorrectly.name, actual, expected)
+      }
+
+      const fridayStart_ordersDatesCorrectly = () => {
+        // Given
+        let expected = {
+          daysHtml: "<tr><th>Friday</th><th>Saturday</th><th>Sunday</th><th>Monday</th><th>Tuesday</th><th>Wednesday</th><th>Thursday</th></tr>",
+          headerHtml: "January 2026",
+          weeksHtml: "<tr><td class=\"date\">2</td><td class=\"date\">3</td><td class=\"date\">4</td><td class=\"date\">5</td><td class=\"date\">6</td><td class=\"date\">7</td><td class=\"date\">8</td></tr><tr><td class=\"date\">9</td><td class=\"date\">10</td><td class=\"date\">11</td><td class=\"date\">12</td><td class=\"date\">13</td><td class=\"date\">14</td><td class=\"date\">15</td></tr><tr><td class=\"date\">16</td><td class=\"date\">17</td><td class=\"date\">18</td><td class=\"date\">19</td><td class=\"date\">20</td><td class=\"date\">21</td><td class=\"date\">22</td></tr><tr><td class=\"date\">23</td><td class=\"date\">24</td><td class=\"date\">25</td><td class=\"date\">26</td><td class=\"date\">27</td><td class=\"date\">28</td><td class=\"date\">29</td></tr><tr><td class=\"date\">30</td><td class=\"date\">31</td><td class=\"date other-month\">1</td><td class=\"date other-month\">2</td><td class=\"date other-month\">3</td><td class=\"date other-month\">4</td><td class=\"date other-month\">5</td></tr>",
+        }
+        const mockGetRequestCalendar = () => ({month: 0, year: 2026, startDay: 5})
+
+        // When
+        const actual = getCalendarHtml(mockGetRequestCalendar)
+
+        // Then
+        assert(fridayStart_ordersDatesCorrectly.name, actual, expected)
+      }
+
+      const saturdayStart_ordersDatesCorrectly = () => {
+        // Given
+        let expected = {
+          daysHtml: "<tr><th>Saturday</th><th>Sunday</th><th>Monday</th><th>Tuesday</th><th>Wednesday</th><th>Thursday</th><th>Friday</th></tr>",
+          headerHtml: "January 2026",
+          weeksHtml: "<tr><td class=\"date\">3</td><td class=\"date\">4</td><td class=\"date\">5</td><td class=\"date\">6</td><td class=\"date\">7</td><td class=\"date\">8</td><td class=\"date\">9</td></tr><tr><td class=\"date\">10</td><td class=\"date\">11</td><td class=\"date\">12</td><td class=\"date\">13</td><td class=\"date\">14</td><td class=\"date\">15</td><td class=\"date\">16</td></tr><tr><td class=\"date\">17</td><td class=\"date\">18</td><td class=\"date\">19</td><td class=\"date\">20</td><td class=\"date\">21</td><td class=\"date\">22</td><td class=\"date\">23</td></tr><tr><td class=\"date\">24</td><td class=\"date\">25</td><td class=\"date\">26</td><td class=\"date\">27</td><td class=\"date\">28</td><td class=\"date\">29</td><td class=\"date\">30</td></tr><tr><td class=\"date\">31</td><td class=\"date other-month\">1</td><td class=\"date other-month\">2</td><td class=\"date other-month\">3</td><td class=\"date other-month\">4</td><td class=\"date other-month\">5</td><td class=\"date other-month\">6</td></tr>",
+        }
+        const mockGetRequestCalendar = () => ({month: 0, year: 2026, startDay: 6})
+
+        // When
+        const actual = getCalendarHtml(mockGetRequestCalendar)
+
+        // Then
+        assert(saturdayStart_ordersDatesCorrectly.name, actual, expected)
+      }
+
+      console.log("\nDifferent Start Date Tests")
+      sundayStart_ordersDatesCorrectly()
+      mondayStart_ordersDatesCorrectly()
+      tuesdayStart_ordersDatesCorrectly()
+      wednesdayStart_ordersDatesCorrectly()
+      thursdayStart_ordersDatesCorrectly()
+      fridayStart_ordersDatesCorrectly()
+      saturdayStart_ordersDatesCorrectly()
+
+      // Param Parsing Tests 
+      const mockGetDate = () => new Date(2026, 3, 15) // 04/15/2026
+
+      const getCalendarFromParams_usesCurrentDateIfNotSpecified = () => {
+        // Given
+        const expected = {year: 2026, month: 3, startDay: 0}
+
+        // When
+        const actual = getCalendarFromParams(mockGetDate, "")
+
+        // Then
+        assert(getCalendarFromParams_usesCurrentDateIfNotSpecified.name, actual, expected)
+      }
+
+      const getCalendarFromParams_usesParamsIfSpecified = () => {
+        // Given
+        const expected = {year: 2025, month: 1, startDay: 4}
+
+        // When
+        const actual = getCalendarFromParams(mockGetDate, "?year=2025&month=2&day=5")
+
+        // Then
+        assert(getCalendarFromParams_usesParamsIfSpecified.name, actual, expected)
+      }
+
+      const getCalendarFromParams_usesSundayIfDayOver7 = () => {
+        // Given
+        const expected = {year: 2026, month: 3, startDay: 0}
+
+        // When
+        const actual = getCalendarFromParams(mockGetDate, "?day=8")
+
+        // Then
+        assert(getCalendarFromParams_usesSundayIfDayOver7.name, actual, expected)
+      }
+
+      const getCalendarFromParams_usesSundayIfDayUnder1 = () => {
+        // Given
+        const expected = {year: 2026, month: 3, startDay: 0}
+
+        // When
+        const actual = getCalendarFromParams(mockGetDate, "?day=0")
+
+        // Then
+        assert(getCalendarFromParams_usesSundayIfDayUnder1.name, actual, expected)
+      }
+
+      const getCalendarFromParams_usesCurrentMonthIfOver12 = () => {
+        // Given
+        const expected = {year: 2026, month: 3, startDay: 0}
+
+        // When
+        const actual = getCalendarFromParams(mockGetDate, "?month=13")
+
+        // Then
+        assert(getCalendarFromParams_usesCurrentMonthIfOver12.name, actual, expected)
+      }
+
+      const getCalendarFromParams_usesCurrentMonthIfUnder1 = () => {
+        // Given
+        const expected = {year: 2026, month: 3, startDay: 0}
+
+        // When
+        const actual = getCalendarFromParams(mockGetDate, "?month=0")
+
+        // Then
+        assert(getCalendarFromParams_usesCurrentMonthIfUnder1.name, actual, expected)
+      }
+
+      const getCalendarFromParams_usesCurrentYearIfUnder1900 = () => {
+        // Given
+        const expected = {year: 2026, month: 3, startDay: 0}
+
+        // When
+        const actual = getCalendarFromParams(mockGetDate, "?month=1899")
+
+        // Then
+        assert(getCalendarFromParams_usesCurrentMonthIfUnder1.name, actual, expected)
+      }
+      console.log("\nParsing Calendar Tests")
+      getCalendarFromParams_usesCurrentDateIfNotSpecified()
+      getCalendarFromParams_usesParamsIfSpecified()
+      getCalendarFromParams_usesSundayIfDayOver7()
+      getCalendarFromParams_usesSundayIfDayUnder1()
+      getCalendarFromParams_usesCurrentMonthIfOver12()
+      getCalendarFromParams_usesCurrentMonthIfUnder1()
+      getCalendarFromParams_usesCurrentYearIfUnder1900()
+
+      const getCalendarDimensions_returnsDimensionsForDefaults = () => {
+        // Given
+        const dimensions = () => getDimensionsFromParams('')
+        const expected = {height: 1.34, width: 1.4285714285714286, margin: 0.5}
+
+        // When
+        const actual = getCalendarDimensions(dimensions)
+
+        // Then
+        assert(getCalendarDimensions_returnsDimensionsForDefaults.name, actual, expected)
+      }
+
+      const getCalendarDimensions_returnsDimensionsForLargeMargin = () => {
+        // Given
+        const dimensions = () => ({height: 8.5, width: 11, margin: 2})
+        const expected = {height: 0.74, width: 1, margin: 2}
+
+        // When
+        const actual = getCalendarDimensions(dimensions)
+
+        // Then
+        assert(getCalendarDimensions_returnsDimensionsForLargeMargin.name, actual, expected)
+      }
+
+      const getCalendarDimensions_returnsDimensionsForPortraitPaper = () => {
+        // Given
+        const dimensions = () => ({height: 11, width: 8.5, margin: 0.5})
+        const expected = {height: 1.8400000000000003, width: 1.0714285714285714, margin: 0.5}
+
+        // When
+        const actual = getCalendarDimensions(dimensions)
+
+        // Then
+        assert(getCalendarDimensions_returnsDimensionsForPortraitPaper.name, actual, expected)
+      }
+
+      // Test 8x10
+      const getCalendarDimensions_returnsDimensionsForPictureFrame = () => {
+        // Given
+        const dimensions = () => ({height: 8, width: 10, margin: 0.5})
+        const expected = {height: 1.24, width: 1.2857142857142858, margin: 0.5}
+
+        // When
+        const actual = getCalendarDimensions(dimensions)
+
+        // Then
+        assert(getCalendarDimensions_returnsDimensionsForPictureFrame.name, actual, expected)
+      }
+
+      console.log("\nUpdate Dimensions Tests")
+      getCalendarDimensions_returnsDimensionsForDefaults()
+      getCalendarDimensions_returnsDimensionsForLargeMargin()
+      getCalendarDimensions_returnsDimensionsForPortraitPaper()
+      getCalendarDimensions_returnsDimensionsForPictureFrame()
+
+      const getDimensionsFromParams_handlesAllQueryParams = () => {
+        // Given
+        const expected = {height: 10, width: 20, margin: 1.25}
+
+        // When
+        const actual = getDimensionsFromParams('?height=10&width=20&margin=1.25')
+
+        // Then
+        assert(getDimensionsFromParams_handlesAllQueryParams.name, actual, expected)
+      }
+
+      const getDimensionsFromParams_returnsDefaultsWhenNoQueryParams = () => {
+        // Given
+        const expected = {height: 8.5, width: 11, margin: 0.5}
+
+        // When
+        const actual = getDimensionsFromParams('')
+
+        // Then
+        assert(getDimensionsFromParams_returnsDefaultsWhenNoQueryParams.name, actual, expected)
+      }
+
+      console.log("\nDimension Parsing Tests")
+      getDimensionsFromParams_handlesAllQueryParams()
+      getDimensionsFromParams_returnsDefaultsWhenNoQueryParams()
+    }
   </script>
 </body>
 
