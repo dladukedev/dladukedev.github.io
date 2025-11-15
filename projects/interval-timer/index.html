@@ -76,7 +76,7 @@
     }
 
     set max(val) {
-      this.setAttribute('max', val - 1);
+      this.setAttribute('max', val);
     }
 
     get max() {
@@ -84,7 +84,7 @@
     }
 
     set value(val) {
-      this.setAttribute('value', val - 1);
+      this.setAttribute('value', val);
     }
 
     get value() {
@@ -184,7 +184,7 @@
     render() {
       const outer = this.shadowRoot.querySelector('.fg');
 
-      const animation = this._useRefillAnimation ? 'stroke-dasharray .8s ease-out 0s' : 'stroke-dasharray 1s linear 0s'
+      const animation = this._useRefillAnimation ? 'stroke-dasharray .1s ease-out 0s' : 'stroke-dasharray .1s linear 0s'
       outer.style.setProperty('transition', animation);
 
       outer.style.setProperty('--progress', this.percent);
@@ -553,7 +553,7 @@
             type: TIMER_TYPE.COUNTDOWN,
             round: 1,
             set: 1,
-            remaining: 3,
+            remaining: 3000,
           }
         }
       }
@@ -577,7 +577,7 @@
     const handleTick = (state, action) => {
       if (!selectIsTimerStarted(state)) return state
 
-      const nextTime = state.timer.remaining - 1
+      const nextTime = state.timer.remaining - 100
       const isNextTimeJustTick = nextTime !== 0
       const isCountdown = state.timer.type === TIMER_TYPE.COUNTDOWN
       const isComplete = state.timer.set === state.config.sets && state.timer.round === state.config.rounds
@@ -592,7 +592,7 @@
       } : isCountdown ? {
         ...state.timer,
         type: TIMER_TYPE.WORK,
-        remaining: state.config.workLength,
+        remaining: state.config.workLength * 1000,
       } : isComplete ? {
         ...state.timer,
         remaining: 0,
@@ -600,22 +600,22 @@
       } : isNextBreak ? {
         ...state.timer,
         type: TIMER_TYPE.BREAK,
-        remaining: state.config.breakLength,
+        remaining: state.config.breakLength * 1000,
       } : isNextSet ? {
         ...state.timer,
         set: state.timer.set + 1,
         round: 1,
         type: TIMER_TYPE.WORK,
-        remaining: state.config.workLength,
+        remaining: state.config.workLength * 1000,
       } : isNextRest ? {
         ...state.timer,
         type: TIMER_TYPE.REST,
-        remaining: state.config.restLength,
+        remaining: state.config.restLength * 1000,
       } : isNextRound ? {
         ...state.timer,
         round: state.timer.round + 1,
         type: TIMER_TYPE.WORK,
-        remaining: state.config.workLength,
+        remaining: state.config.workLength * 1000,
       } : state.timer
 
       return {
@@ -652,7 +652,7 @@
       if (action.type === "start") {
         timer = setInterval(() => {
           dispatch(tickAction())
-        }, 1000)
+        }, 100)
       }
 
       return action
@@ -740,8 +740,8 @@
       const currentRound = selectCurrentRound(state)
       const rounds = selectRounds(state)
 
-      timerProgress.max = duration
-      timerProgress.value = timeRemaining ?? duration
+      timerProgress.max = duration * 1000
+      timerProgress.value = timeRemaining ?? duration * 1000
 
       roundsAndSets.innerHTML = `Round: ${currentRound}/${rounds} Set: ${currentSet}/${sets}`
 
@@ -840,10 +840,16 @@
       pause: handlePauseTimer,
     }
 
+    const loggingMiddleware = (action, state, dispatch) => {
+      console.log(action)
+      console.log(state)
+      return action
+    }
+
     /** @type Array<Subscriber<IntervalTimerState>> */
     const subscribers = [uiUpdate, alarmSubscriber]
     /** @type Array<Middleware<IntervalTimerState>> */
-    const middleware = [timerMiddleware]
+    const middleware = [loggingMiddleware, timerMiddleware]
 
     /** @type Store<IntervalTimerState> */
     const store = createStore(initialState, reducer, subscribers, middleware)
