@@ -41,39 +41,195 @@
       background-color: var(--color-background);
       color: var(--color-content);
     }
+
+    #timer-area {
+      display: grid;
+      grid-template-areas: "overlap";
+      justify-content: start;
+      align-items: center;
+      justify-items: center;
+    }
+
+    #timer-progress {
+      grid-area: overlap;
+    }
+
+    #timer-area-inner {
+      grid-area: overlap;
+      display: grid;
+      justify-items: center;
+    }
+
+    footer {
+      ul {
+        margin: 0 16px;
+      }
+    }
   </style>
 </head>
 
+<script> // Web Components ============================================================
+  class CircularProgressBar extends HTMLElement {
+
+    static get observedAttributes() {
+      return ['max', 'value'];
+    }
+
+    set max(val) {
+      this.setAttribute('max', val - 1);
+    }
+
+    get max() {
+      return this.getAttribute('max');
+    }
+
+    set value(val) {
+      this.setAttribute('value', val - 1);
+    }
+
+    get value() {
+      return this.getAttribute('value');
+    }
+
+    get percent() {
+      if (this._max === 0) return 0
+
+      if (this._value === this._max) return 100
+
+      return ((this._value) / this._max) * 100
+    }
+
+    attributeChangedCallback(name, oldValue, newValue) {
+      if (name === 'max') {
+        this._max = newValue
+        this.render()
+      } else if (name === 'value') {
+        this._useRefillAnimation = parseInt(newValue) > parseInt(oldValue)
+        this._value = newValue
+        this.render()
+      }
+    }
+
+    constructor() {
+      super();
+
+      this._useRefillAnimation = true
+      this._max = 1
+      this._value = 0
+      this._percent = 0
+
+      this.attachShadow({mode: 'open'})
+    }
+
+    connectedCallback() {
+      // BEGIN Licensed MIT - Copyright (c) 2025 by Angelos Chalaris
+      /*
+        Copyright (c) 2025 by Angelos Chalaris (https://codepen.io/chalarangelo/pen/mdodgeL)
+
+        Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+        The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+      */
+      this.shadowRoot.innerHTML = `
+        <style id="style">
+          progress { display: none; }
+          :host {
+            --size: 250px;
+            --half-size: calc(var(--size) / 2);
+            --stroke-width: 12px;
+            --radius: calc((var(--size) - var(--stroke-width)) / 2);
+            --circumference: calc(var(--radius) * pi * 2);
+          }
+
+          circle {
+            cx: var(--half-size);
+            cy: var(--half-size);
+            r: var(--radius);
+            stroke-width: var(--stroke-width);
+            fill: none;
+          }
+
+          .bg {
+            stroke: var(--color-container);
+          }
+
+          .fg {
+            --dash: calc((var(--progress) * var(--circumference)) / 100);
+            transform: rotate(-90deg);
+            transform-origin: var(--half-size) var(--half-size);
+            stroke-dasharray: var(--dash) calc(var(--circumference) - var(--dash));
+            transition: none;
+            stroke: var(--color-pop);
+          }
+
+          @property --progress {
+            syntax: "<number>";
+            inherits: false;
+            initial-value: 0;
+          }
+        </style>
+        <progress max="${this._max}" value="${this._value}"></progress>
+        <svg width="250" height="250" viewBox="0 0 250 250" id="circular-progress">
+          <circle class="bg"></circle>
+          <circle class="fg"></circle>
+        </svg>
+      `
+      // END
+
+      this.render()
+    }
+
+    render() {
+      const outer = this.shadowRoot.querySelector('.fg');
+
+      const animation = this._useRefillAnimation ? 'stroke-dasharray .8s ease-out 0s' : 'stroke-dasharray 1s linear 0s'
+      outer.style.setProperty('transition', animation);
+
+      outer.style.setProperty('--progress', this.percent);
+    }
+  }
+  window.customElements.define('circular-progress-bar', CircularProgressBar);
+</script>
+
 <body>
+
+  <div id="timer-area">
+    <circular-progress-bar id="timer-progress"></circular-progress-bar>
+    <div id="timer-area-inner">
+      <h1>
+        <span id="timer">READY</span>
+      </h1>
+      <p>
+        <span id="round-type"></span>
+      </p>
+
+      <button id="start-button" onclick="start()">Start</button>
+      <button id="pause-button" onclick="pause()">Pause</button>
+    </div>
+  </div>
+
+  <br>
+
   <progress id="workout-progress" value="0"></progress>
   <p id="roundsAndSets"></p>
-  <h1>
-    <span id="timer">READY</span>
-  </h1>
-  <p>
-    <span id="round-type-indicator" style="height: 20px; width: 20px; border-radius: 50%; display: inline-block"></span>
-    &nbsp;
-    <span id="round-type"></span>
-  </p>
-  <progress id="timer-progress" value="0"></progress>
-
-  <br><br>
-
-  <button id="start-button" onclick="start()">Start</button>
-  <button id="pause-button" onclick="pause()">Pause</button>
-  <button id="stop-button" onclick="stop()">Stop</button>
 
   <footer>
     <h3>Interval Timer</h3>
     <br />
-    <p>This calendar only ever shows 5 weeks, removing the first week if necessary and will fit on a 8.5x11" landscape
-      page when printed</p>
+
+    <p>Ad Free interval timer, defaults to tabata timer but can be completely configured using query parameters</p>
     <br />
-    <p>To render a specific calendar, use the relevant query params</p>
+    <p>Use the button to start and pause the timer as needed, refresh your browser to reset the timer</p>
+    <br />
+    <p>To configure a specific timer, use the relevant query params</p>
     <ul>
-      <li>"month" for the month, starting with 1 for January (e.g. "month=6")
-      <li>"year" for the year (e.g. "year=2025")</li>
-      <li>"day" for the day of the week to start the week, starting with 1 for Sunday (e.g. "day=1")</li>
+      <li>"sets" for the number of cycles in the timer, defaults to 5</li>
+      <li>"rounds" for number of work timers in each set, defaults to 8</li>
+      <li>"workLength" for the length in seconds of the "work" timer, defaults to 20</li>
+      <li>"restLength" for the length in seconds of the "rest" timer between each round, defaults to 10</li>
+      <li>"breakLength" for the length in seconds of the "break" timer between each set, defaults to 60</li>
     </ul>
     <br />
     <p>This is a micro-project, check the source to see the code and do what you want with it!</p>
@@ -83,7 +239,71 @@
     <p>Donovan LaDuke 2025 - <a href="https://opensource.org/license/mit">MIT License</a></p>
   </footer>
 
-  <script>
+  <script> // Store ================================================================================
+    /**
+     * @template TState, TResult
+     * @typedef Selector
+     * @type {(state: TState) => TResult}
+     **/
+
+    /**
+     * @template TState, TAction
+     * @typedef Reducer
+     * @type {(state: TState, action: TAction) => TState>}
+     **/
+
+    /**
+     * @template TState
+     * @typedef Reducers
+     * @type {Object.<string, Reducer<TState, Action<any>>}
+     **/
+
+    /**
+     * @template Type, TPayload
+     * @typedef {Object} Action
+     * @property {Type} type - The name of the action
+     * @property {TPayload} payload - The payload associated with the action
+     **/
+
+    /**
+     * @template TAction
+     * @typedef ActionCreator
+     * @type {(...args: unknown[]) => TAction}
+     **/
+
+    /**
+     * @template TState
+     * @callback Subscriber
+     * @param {TState} state
+     * @param {TState} prevState
+     * @returns {void}
+     */
+
+    /**
+     * @template TState
+     * @callback Middleware
+     * @param {Action<string, any>} action
+     * @param {TState} state
+     * @param {(action: Action<string, any>) => void} dispatch
+     * @returns {TState}
+     */
+
+    /**
+     * @template TState
+     * @typedef Store
+     * @property {(action: Action<string, any>) => void} dispatch
+     * @property {() => TState} getState
+     **/
+
+    /**
+     * @template TState
+     * Create a Redux Store
+     * @param {TState} initialState
+     * @param {Reducers<TState>} reducer
+     * @param {Array<Subscriber<TState>>} subscribers
+     * @param {Array<Middleware<TState>>} middleware
+     * @returns {Store<TState>}
+     **/
     const createStore = (initialState, reducer = {}, subscribers = [], middleware = []) => {
       let state = initialState
 
@@ -101,17 +321,40 @@
         subscribers.forEach(sub => sub(state, prevState))
       }
 
+      // Run for Initial State
+      subscribers.forEach(sub => sub(initialState, initialState))
+
       return {
         dispatch,
         getState,
       }
     }
+  </script>
 
+  <script> // Util ================================================================================
+    /**
+     * Read a query parameter, returning orDefault if not found
+     * @template T
+     * @param {string} key
+     * @param {T} orDefault
+     * @returns {T}
+     **/
     const readQueryParam = (key, orDefault) => {
       const param = (new URLSearchParams(window.location.search)).get(key) ?? orDefault
       return parseInt(param, 10)
     }
+  </script>
 
+  <script> // Timer ================================================================================
+    /**
+     * @typedef {'INIT'|'REST'|'WORK'|'BREAK'|'COUNTDOWN'} TimerType
+     **/
+
+    /**
+     * Timer Types
+     * @readonly
+     * @enum {TimerType}
+     */
     const TIMER_TYPE = {
       INIT: 'init',
       REST: 'rest',
@@ -120,53 +363,107 @@
       COUNTDOWN: 'countdown',
     }
 
+    /**
+     * @typedef {'INIT'|'STARTED'|'PAUSED'|'COMPLETE'} TimerState
+     **/
+
+    /**
+     * Timer States
+     * @readonly
+     * @enum {TimerState}
+     */
     const TIMER_STATE = {
-      STOPPED: 'stopped',
-      STARTED: 'started',
-      PAUSED: 'paused',
-      COMPLETE: 'complete'
+      INIT: 'INIT',
+      STARTED: 'STARTED',
+      PAUSED: 'PAUSED',
+      COMPLETE: 'COMPLETE'
     }
-
-    // State
-    const initialState = {
-      config: {
-        rounds: readQueryParam("rounds", 8),
-        sets: readQueryParam("sets", 5),
-        breakLength: readQueryParam("break", 60),
-        restLength: readQueryParam("rest", 10),
-        workLength: readQueryParam("work", 20),
-      },
-      timer: {
-        state: TIMER_STATE.STOPPED,
-        type: TIMER_TYPE.INIT,
-      }
-    }
-
 
     // Selectors
+
+    /** 
+     * Select the total Rounds
+     * @type Selector<IntervalTimerState, number> 
+     **/
     const selectRounds = (state) => state.config.rounds
+    /** 
+     * Select the total Sets
+     * @type Selector<IntervalTimerState, number> 
+     **/
     const selectSets = (state) => state.config.sets
+    /** 
+     * Select the configured break timer length
+     * @type Selector<IntervalTimerState, number> 
+     **/
     const selectBreakLength = (state) => state.config.breakLength
+    /** 
+     * Select the configured rest timer length
+     * @type Selector<IntervalTimerState, number> 
+     **/
     const selectRestLength = (state) => state.config.restLength
+    /** 
+     * Select the configured work timer length
+     * @type Selector<IntervalTimerState, number> 
+     **/
     const selectWorkLength = (state) => state.config.workLength
 
+    /** 
+     * Select the state of the timer, is it running
+     * @type Selector<IntervalTimerState, boolean> 
+     **/
     const selectIsTimerStarted = (state) => state.timer.state === TIMER_STATE.STARTED
-    const selectIsTimerStopped = (state) => state.timer.state === TIMER_STATE.STOPPED
+    /** 
+     * Select the state of the timer, is it initial
+     * @type Selector<IntervalTimerState, boolean> 
+     **/
+    const selectIsTimerInitial = (state) => state.timer.state === TIMER_STATE.INIT
+    /** 
+     * Select the state of the timer, is it paused
+     * @type Selector<IntervalTimerState, boolean> 
+     **/
     const selectIsTimerPaused = (state) => state.timer.state === TIMER_STATE.PAUSED
+    /** 
+     * Select the state of the timer, is it complete
+     * @type Selector<IntervalTimerState, boolean> 
+     **/
     const selectIsTimerComplete = (state) => state.timer.state === TIMER_STATE.COMPLETE
 
-    const selectCurrentRound = (state) => state.timer.round
-    const selectCurrentSet = (state) => state.timer.set
+    /** 
+     * Select the current round in the set
+     * @type Selector<IntervalTimerState, number> 
+     **/
+    const selectCurrentRound = (state) => state.timer.round ?? 1
+    /** 
+     * Select the current set
+     * @type Selector<IntervalTimerState, number> 
+     **/
+    const selectCurrentSet = (state) => state.timer.set ?? 1
 
+    /** 
+     * Select the current type of the timer
+     * @type Selector<IntervalTimerState, TimerType> 
+     **/
     const selectTimerType = (state) => state.timer.type
 
+    /** 
+     * Select the seconds remaining on the timer
+     * @type Selector<IntervalTimerState, number> 
+     **/
     const selectTimerSecondsRemaining = (state) => state.timer.remaining
+    /** 
+     * Select the configured duration for the current timer type
+     * @type Selector<IntervalTimerState, number> 
+     **/
     const selectTimerSecondsDuration = (state) => state.timer.type === TIMER_TYPE.COUNTDOWN ? 3
       : state.timer.type === TIMER_TYPE.BREAK ? state.config.breakLength
         : state.timer.type === TIMER_TYPE.REST ? state.config.restLength
           : state.timer.type === TIMER_TYPE.WORK ? state.config.workLength
             : 1
 
+    /** 
+     * Select the total length in seconds of the current set
+     * @type Selector<IntervalTimerState, number> 
+     **/
     const selectSetLength = (state) => {
       const rounds = selectRounds(state)
       const restLength = selectRestLength(state)
@@ -175,6 +472,10 @@
       return (workLength * rounds) + (restLength * (rounds - 1))
     }
 
+    /** 
+     * Select the total length in seconds of the interval timer
+     * @type Selector<IntervalTimerState, number> 
+     **/
     const selectTotalTime = (state) => {
       const sets = selectSets(state)
 
@@ -188,6 +489,10 @@
       return breakTotalTime + setTotalTime
     }
 
+    /** 
+     * Select the elapsed length of time in seconds of the interval timer
+     * @type Selector<IntervalTimerState, number> 
+     **/
     const selectRoundedTimeElapsed = (state) => {
       if (selectIsTimerComplete(state)) {
         return selectTotalTime(state)
@@ -224,6 +529,8 @@
 
     // Reducers
     // TODO: Separate actions/logic for begin vs resume?
+
+    /** @type Reducer<IntervalTimerState, StartAction> */
     const handleStartTimer = (state, action) => {
       if (selectIsTimerStarted(state)) return state
 
@@ -253,18 +560,7 @@
 
     }
 
-    const handleStopTimer = (state, action) => {
-      if (selectIsTimerStopped(state)) return state
-
-      return {
-        ...state,
-        timer: {
-          state: TIMER_STATE.STOPPED,
-          type: TIMER_TYPE.INIT,
-        }
-      }
-    }
-
+    /** @type Reducer<IntervalTimerState, PauseAction> */
     const handlePauseTimer = (state, action) => {
       if (selectIsTimerPaused(state)) return state
 
@@ -277,7 +573,7 @@
       }
     }
 
-    // tick
+    /** @type Reducer<IntervalTimerState, TickAction> */
     const handleTick = (state, action) => {
       if (!selectIsTimerStarted(state)) return state
 
@@ -328,103 +624,26 @@
       }
     }
 
-    const reducer = {
-      tick: handleTick,
-      start: handleStartTimer,
-      stop: handleStopTimer,
-      pause: handlePauseTimer,
-      // restart: handleRestartTimer,
-    }
-
     // Actions
-    const tickAction = () => ({type: "tick"})
-    const startAction = () => ({type: "start"})
-    const stopAction = () => ({type: "stop"})
-    const pauseAction = () => ({type: "pause"})
-
-    const uiUpdate = (state, prevState) => {
-      const roundsAndSets = document.getElementById("roundsAndSets")
-      const timer = document.getElementById("timer")
-      const timerProgress = document.getElementById("timer-progress")
-      const stopButton = document.getElementById("stop-button")
-      const startButton = document.getElementById("start-button")
-      const pauseButton = document.getElementById("pause-button")
-      const roundTypeText = document.getElementById("round-type")
-      const roundTypeIndicator = document.getElementById("round-type-indicator")
-      const workoutProgress = document.getElementById("workout-progress")
-
-      const timeRemaining = selectTimerSecondsRemaining(state)
-      const duration = selectTimerSecondsDuration(state)
-
-      const isPaused = selectIsTimerPaused(state)
-      const isStopped = selectIsTimerStopped(state)
-      const isStarted = selectIsTimerStarted(state)
-      const isComplete = selectIsTimerComplete(state)
-
-      const currentSet = selectCurrentSet(state)
-      const sets = selectSets(state)
-      const currentRound = selectCurrentRound(state)
-      const rounds = selectRounds(state)
-
-      timerProgress.max = duration
-
-      if (isStopped) {
-        roundsAndSets.innerHTML = ""
-        timerProgress.value = duration
-        timer.innerHTML = "START"
-      } else if (isComplete) {
-        roundsAndSets.innerHTML = `Round: ${currentRound}\\${rounds} Set: ${currentSet}\\${sets}`
-        timerProgress.value = duration
-        timer.innerHTML = "DONE"
-      } else {
-        roundsAndSets.innerHTML = `Round: ${currentRound}\\${rounds} Set: ${currentSet}\\${sets}`
-        timerProgress.value = timeRemaining
-        timer.innerHTML = `${timeRemaining}`
-      }
-
-      const workoutDuration = selectTotalTime(state)
-      const workoutTimeElapsed = selectRoundedTimeElapsed(state)
-
-      workoutProgress.max = workoutDuration
-      workoutProgress.value = workoutTimeElapsed
-
-      const timerType = selectTimerType(state)
-
-      switch (timerType) {
-        case TIMER_TYPE.INIT:
-          roundTypeText.innerHTML = "Let's go!"
-          roundTypeIndicator.style.backgroundColor = 'blue'
-          break;
-        case TIMER_TYPE.COUNTDOWN:
-          if (timeRemaining === 3) {
-            roundTypeText.innerHTML = "Ready..."
-          } else if (timeRemaining === 2) {
-            roundTypeText.innerHTML = "Set..."
-          } else {
-            roundTypeText.innerHTML = "Here we go!"
-          }
-          roundTypeIndicator.style.backgroundColor = 'orange'
-          break;
-        case TIMER_TYPE.BREAK:
-          roundTypeText.innerHTML = "BREAK"
-          roundTypeIndicator.style.backgroundColor = 'red'
-          break;
-        case TIMER_TYPE.REST:
-          roundTypeText.innerHTML = "REST"
-          roundTypeIndicator.style.backgroundColor = 'yellow'
-          break;
-        case TIMER_TYPE.WORK:
-          roundTypeText.innerHTML = "WORK"
-          roundTypeIndicator.style.backgroundColor = 'green'
-          break;
-      }
-
-      stopButton.disabled = isStopped
-      pauseButton.disabled = isPaused || isStopped
-      startButton.disabled = isStarted
+    const TIMER_ACTION = {
+      TICK: 'tick',
+      START: 'start',
+      PAUSE: 'pause',
     }
 
+    /** @typedef {Action<"tick", *>} TickAction */
+    /** @type ActionCreator<TickAction> */
+    const tickAction = () => ({type: TIMER_ACTION.TICK})
+    /** @typedef {Action<"start", *>} StartAction */
+    /** @type ActionCreator<StartAction> */
+    const startAction = () => ({type: TIMER_ACTION.START})
+    /** @typedef {Action<"pause", *>} PauseAction */
+    /** @type ActionCreator<PauseAction> */
+    const pauseAction = () => ({type: TIMER_ACTION.PAUSE})
+
+    // Middleware
     var timer = null
+    /** @type {Middleware<IntervalTimerState>} */
     const timerMiddleware = (action, state, dispatch) => {
       if (action.type !== 'tick' || !selectIsTimerStarted(state)) {
         clearInterval(timer)
@@ -439,6 +658,8 @@
       return action
     }
 
+    // Subscriber
+    /** @type {Subscriber<IntervalTimerState>} */
     const alarmSubscriber = (state, prevState) => {
       const isRunning = selectIsTimerStarted(state) && selectIsTimerStarted(prevState)
       const wasCompleted = selectIsTimerComplete(state) && !selectIsTimerComplete(prevState)
@@ -493,24 +714,147 @@
       }
     }
 
+  </script>
+
+  <script> // View =======================================================================
+    /** @type {Subscriber<IntervalTimerState>} */
+    const uiUpdate = (state, prevState) => {
+      const roundsAndSets = document.getElementById("roundsAndSets")
+      const timer = document.getElementById("timer")
+      const timerProgress = document.getElementById("timer-progress")
+      const startButton = document.getElementById("start-button")
+      const pauseButton = document.getElementById("pause-button")
+      const roundTypeText = document.getElementById("round-type")
+      const workoutProgress = document.getElementById("workout-progress")
+
+      const timeRemaining = selectTimerSecondsRemaining(state)
+      const duration = selectTimerSecondsDuration(state)
+
+      const isPaused = selectIsTimerPaused(state)
+      const isInitial = selectIsTimerInitial(state)
+      const isStarted = selectIsTimerStarted(state)
+      const isComplete = selectIsTimerComplete(state)
+
+      const currentSet = selectCurrentSet(state)
+      const sets = selectSets(state)
+      const currentRound = selectCurrentRound(state)
+      const rounds = selectRounds(state)
+
+      timerProgress.max = duration
+      timerProgress.value = timeRemaining ?? duration
+
+      roundsAndSets.innerHTML = `Round: ${currentRound}/${rounds} Set: ${currentSet}/${sets}`
+
+      if (isInitial) {
+        timer.innerHTML = "START"
+      } else if (isComplete) {
+        timer.innerHTML = "DONE"
+      } else {
+        timer.innerHTML = `${timeRemaining}`
+      }
+
+      const workoutDuration = selectTotalTime(state)
+      const workoutTimeElapsed = selectRoundedTimeElapsed(state)
+
+      workoutProgress.max = workoutDuration
+      workoutProgress.value = workoutTimeElapsed
+
+      const timerType = selectTimerType(state)
+
+      switch (timerType) {
+        case TIMER_TYPE.INIT:
+          roundTypeText.innerHTML = "Let's go!"
+          break;
+        case TIMER_TYPE.COUNTDOWN:
+          if (timeRemaining === 3) {
+            roundTypeText.innerHTML = "Ready"
+          } else if (timeRemaining === 2) {
+            roundTypeText.innerHTML = "Set"
+          } else {
+            roundTypeText.innerHTML = "Here we go!"
+          }
+          break;
+        case TIMER_TYPE.BREAK:
+          roundTypeText.innerHTML = "BREAK"
+          break;
+        case TIMER_TYPE.REST:
+          roundTypeText.innerHTML = "REST"
+          break;
+        case TIMER_TYPE.WORK:
+          roundTypeText.innerHTML = "WORK"
+          break;
+      }
+
+      pauseButton.style.display = !isStarted ? 'none' : 'block'
+      startButton.style.display = isStarted ? 'none' : 'block'
+    }
+  </script>
+
+  <script> // Main ================================================================================
+    /**
+     * @typedef IntervalTimerConfigState
+     * @type {object}
+     * @property {number} rounds - The number of timers per set
+     * @property {number} sets - The number of interval groups
+     * @property {number} breakLength - The length of time between sets in seconds
+     * @property {number} workLength - The length of time in each work timer
+     * @property {number} restLength - The length of time in each rest timer
+     */
+
+    /**
+     * @typedef IntervalTimerTimerState
+     * @type {object}
+     * @property {TimerState} state
+     * @property {TimerType} type
+     * @property {?number} round - The current round number in the set
+     * @property {?number} set - The current set number
+     * @property {?number} remaining - The number of seconds remainig for this timer
+     */
+
+    /**
+     * @typedef IntervalTimerState
+     * @type {object}
+     * @property {IntervalTimerTimerState} timer
+     * @property {IntervalTimerConfigState} config
+     */
+
+    /** @type{IntervalTimerState} */
+    const initialState = {
+      config: {
+        rounds: readQueryParam("rounds", 8),
+        sets: readQueryParam("sets", 5),
+        breakLength: readQueryParam("break", 60),
+        restLength: readQueryParam("rest", 10),
+        workLength: readQueryParam("work", 20),
+      },
+      timer: {
+        state: TIMER_STATE.INIT,
+        type: TIMER_TYPE.INIT,
+      }
+    }
+
+    /** @type Reducers<IntervalTimerState> */
+    const reducer = {
+      tick: handleTick,
+      start: handleStartTimer,
+      pause: handlePauseTimer,
+    }
+
+    /** @type Array<Subscriber<IntervalTimerState>> */
     const subscribers = [uiUpdate, alarmSubscriber]
+    /** @type Array<Middleware<IntervalTimerState>> */
     const middleware = [timerMiddleware]
 
+    /** @type Store<IntervalTimerState> */
     const store = createStore(initialState, reducer, subscribers, middleware)
 
     const start = () => {store.dispatch(startAction())}
-    const stop = () => {store.dispatch(stopAction())}
     const pause = () => {store.dispatch(pauseAction())}
-
-    uiUpdate(store.getState(), store.getState())
   </script>
-
 
   <script> // Accent Color ===============================================================
     const setAccentColor = () => {
-      const search = window.location.search
-      const urlParams = new URLSearchParams(search)
-      const accentParam = urlParams.get('accent')
+      const accentParam = readQueryParam('accent', '')
 
       let accentColorDark = '#284E13'
       let accentColorLight = '#93C47D'
@@ -563,9 +907,7 @@
   </script>
 
   <script>
-    const search = window.location.search
-    const urlParams = new URLSearchParams(search)
-    const hideInfo = urlParams.get('hideInfo') === 'true'
+    const hideInfo = (new URLSearchParams(window.location.search)).get('hideInfo') === 'true'
 
     if (hideInfo) {
       document.querySelector('footer').style = 'display: none'
@@ -584,7 +926,7 @@
           workLength: 20,
         },
         timer: {
-          state: TIMER_STATE.STOPPED,
+          state: TIMER_STATE.INIT,
           type: TIMER_TYPE.INIT,
         }
       }

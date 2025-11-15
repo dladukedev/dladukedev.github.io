@@ -327,6 +327,9 @@
   <footer>
     <h3>Tape Calculator</h3>
     <br />
+    <p>A calculator with a running "tape" of your calculation, use the copy button on the tape to quickly copy your calc
+      into another app</p>
+    <br />
     <p>This is a micro-project, check the source to see the code and do what you want with it!</p>
     <br />
     <p>Did you find this helpful? Buy me a coffee - <a href="https://ko-fi.com/donovanjladuke">Ko-fi</a></p>
@@ -1399,20 +1402,6 @@
       return hasDecimal ? `${formattedInteger}.${decimal}` : formattedInteger
     }
 
-    /**
-     * Valid Operation Types
-     * @readonly
-     * @enum {Operation}
-     */
-    const OPERATION = {
-      ADD: 'ADD',
-      SUB: 'SUB',
-      DIV: 'DIV',
-      MUL: 'MUL',
-      INIT: 'INIT',
-      EQUALS: 'EQUALS',
-    }
-
     // Tests
     const runUtilTests = () => {
       const numberFormat_formatsWholeNumbers = () => {
@@ -1555,6 +1544,25 @@
   </script>
 
   <script> // Calculator =================================================================
+    /**
+     * @typedef {'ADD'|'SUB'|'DIV'|'MUL'|'INIT'|'EQUALS'} Operation
+     **/
+
+    /**
+     * Valid Operation Types
+     * @readonly
+     * @enum {Operation}
+     */
+    const OPERATION = {
+      ADD: 'ADD',
+      SUB: 'SUB',
+      DIV: 'DIV',
+      MUL: 'MUL',
+      INIT: 'INIT',
+      EQUALS: 'EQUALS',
+    }
+
+
     // Selectors
 
     /**
@@ -4387,10 +4395,6 @@
 
   <script> // Main =======================================================================
     /**
-     * @typedef {'ADD'|'SUB'|'DIV'|'MUL'|'INIT'|'EQUALS'} Operation
-     **/
-
-    /**
      * @typedef CalculatorLogItem
      * @type {object}
      * @property {BigNumber} num - The number associated with the operation
@@ -4453,6 +4457,7 @@
     /** @type Array<Middleware<TapeCalcState>> */
     const middleware = [keyboardHandlerMiddleware, copyTapeMiddleware]
 
+    /** @type Store<TapeCalcState> */
     const store = createStore(initialState, reducer, subscribers, middleware)
 
     document.addEventListener('keydown', function (event) {
