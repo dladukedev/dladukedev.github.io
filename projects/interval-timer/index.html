@@ -36,10 +36,25 @@
       color: var(--color-pop);
     }
 
+    button {
+      background-color: var(--color-container);
+      border: 1px solid var(--color-container);
+      padding: 8px 16px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      border: 1px solid var(--color-content-secondary);
+    }
+
     body {
       margin: 32px;
       background-color: var(--color-background);
       color: var(--color-content);
+      display: grid;
+      gap: 16px;
+      justify-content: start;
+      justify-items: center;
     }
 
     #timer-area {
@@ -57,7 +72,12 @@
     #timer-area-inner {
       grid-area: overlap;
       display: grid;
+      gap: 8px;
       justify-items: center;
+    }
+
+    #timer {
+      font-size: 3.5rem;
     }
 
     footer {
@@ -69,6 +89,109 @@
 </head>
 
 <script> // Web Components ============================================================
+  class LinearProgressBar extends HTMLElement {
+    static get observedAttributes() {
+      return ['max', 'value'];
+    }
+
+    set max(val) {
+      this.setAttribute('max', val);
+    }
+
+    get max() {
+      return this.getAttribute('max');
+    }
+
+    set value(val) {
+      this.setAttribute('value', val);
+    }
+
+    get value() {
+      return this.getAttribute('value');
+    }
+
+    get percent() {
+      if (this._max === 0) return 0
+
+      if (this._value === this._max) return 100
+
+      return ((this._value) / this._max) * 100
+    }
+
+    attributeChangedCallback(name, oldValue, newValue) {
+      if (name === 'max') {
+        this._max = newValue
+        this.render()
+      } else if (name === 'value') {
+        this._value = newValue
+        this.render()
+      }
+    }
+
+    constructor() {
+      super();
+
+      this._max = 1
+      this._value = 0
+      this._percent = 0
+
+      this.attachShadow({mode: 'open'})
+    }
+
+    connectedCallback() {
+      this.shadowRoot.innerHTML = `
+        <style id="style">
+          progress { display: none; }
+          :host {
+            --size: 250px;
+            --stroke-width: 12px;
+          }
+
+          rx {
+            width: var(--size);
+            height: var(--stroke-width);
+            fill: none;
+          }
+
+          .bg {
+            fill: var(--color-container);
+          }
+
+          .fg {
+            /* --dash: calc((var(--progress) * var(--circumference)) / 100); */
+            /* transform: rotate(-90deg); */
+            /* transform-origin: var(--half-size) var(--half-size); */
+            /* stroke-dasharray: var(--dash) calc(var(--circumference) - var(--dash)); */
+            /* transition: none; */
+            fill: var(--color-pop);
+          }
+
+          @property --progress {
+            syntax: "<number>";
+            inherits: false;
+            initial-value: 0;
+          }
+        </style>
+        <progress max="${this._max}" value="${this._value}"></progress>
+        <svg width="250" height="12" viewBox="0 0 250 250" id="linear-progress">
+          <rect class="bg"></rect>
+          <rect class="fg"></rect>
+        </svg>
+      `
+      // END
+
+      this.render()
+    }
+
+    render() {
+      const outer = this.shadowRoot.querySelector('.fg');
+
+      outer.style.setProperty('transition', 'stroke-dasharray 50ms linear');
+
+      outer.style.setProperty('--progress', this.percent);
+    }
+  }
+
   class CircularProgressBar extends HTMLElement {
 
     static get observedAttributes() {
@@ -184,7 +307,7 @@
     render() {
       const outer = this.shadowRoot.querySelector('.fg');
 
-      const animation = this._useRefillAnimation ? 'stroke-dasharray .1s ease-out 0s' : 'stroke-dasharray .1s linear 0s'
+      const animation = this._useRefillAnimation ? 'none' : 'stroke-dasharray 50ms linear'
       outer.style.setProperty('transition', animation);
 
       outer.style.setProperty('--progress', this.percent);
@@ -198,22 +321,19 @@
   <div id="timer-area">
     <circular-progress-bar id="timer-progress"></circular-progress-bar>
     <div id="timer-area-inner">
-      <h1>
-        <span id="timer">READY</span>
-      </h1>
       <p>
         <span id="round-type"></span>
       </p>
 
-      <button id="start-button" onclick="start()">Start</button>
-      <button id="pause-button" onclick="pause()">Pause</button>
+      <span id="timer">READY</span>
+
+      <button id="start-button" onclick="start()">START</button>
+      <button id="pause-button" onclick="pause()">PAUSE</button>
     </div>
   </div>
 
-  <br>
-
-  <progress id="workout-progress" value="0"></progress>
   <p id="roundsAndSets"></p>
+  <progress id="workout-progress" value="0"></progress>
 
   <footer>
     <h3>Interval Timer</h3>
@@ -449,16 +569,23 @@
      * Select the seconds remaining on the timer
      * @type Selector<IntervalTimerState, number> 
      **/
-    const selectTimerSecondsRemaining = (state) => state.timer.remaining
+    const selectTimerSecondsRemaining = (state) => Math.ceil(state.timer.remaining / 1000)
+
+    /** 
+     * Select the milliseconds remaining on the timer
+     * @type Selector<IntervalTimerState, number> 
+     **/
+    const selectTimerMillisecondsRemaining = (state) => state.timer.remaining
+
     /** 
      * Select the configured duration for the current timer type
      * @type Selector<IntervalTimerState, number> 
      **/
-    const selectTimerSecondsDuration = (state) => state.timer.type === TIMER_TYPE.COUNTDOWN ? 3
+    const selectTimerSecondsDuration = (state) => state.timer.type === TIMER_TYPE.COUNTDOWN ? 3000
       : state.timer.type === TIMER_TYPE.BREAK ? state.config.breakLength
         : state.timer.type === TIMER_TYPE.REST ? state.config.restLength
           : state.timer.type === TIMER_TYPE.WORK ? state.config.workLength
-            : 1
+            : 1000
 
     /** 
      * Select the total length in seconds of the current set
@@ -577,7 +704,7 @@
     const handleTick = (state, action) => {
       if (!selectIsTimerStarted(state)) return state
 
-      const nextTime = state.timer.remaining - 100
+      const nextTime = state.timer.remaining - 50
       const isNextTimeJustTick = nextTime !== 0
       const isCountdown = state.timer.type === TIMER_TYPE.COUNTDOWN
       const isComplete = state.timer.set === state.config.sets && state.timer.round === state.config.rounds
@@ -592,7 +719,7 @@
       } : isCountdown ? {
         ...state.timer,
         type: TIMER_TYPE.WORK,
-        remaining: state.config.workLength * 1000,
+        remaining: state.config.workLength,
       } : isComplete ? {
         ...state.timer,
         remaining: 0,
@@ -600,22 +727,22 @@
       } : isNextBreak ? {
         ...state.timer,
         type: TIMER_TYPE.BREAK,
-        remaining: state.config.breakLength * 1000,
+        remaining: state.config.breakLength,
       } : isNextSet ? {
         ...state.timer,
         set: state.timer.set + 1,
         round: 1,
         type: TIMER_TYPE.WORK,
-        remaining: state.config.workLength * 1000,
+        remaining: state.config.workLength,
       } : isNextRest ? {
         ...state.timer,
         type: TIMER_TYPE.REST,
-        remaining: state.config.restLength * 1000,
+        remaining: state.config.restLength,
       } : isNextRound ? {
         ...state.timer,
         round: state.timer.round + 1,
         type: TIMER_TYPE.WORK,
-        remaining: state.config.workLength * 1000,
+        remaining: state.config.workLength,
       } : state.timer
 
       return {
@@ -652,7 +779,7 @@
       if (action.type === "start") {
         timer = setInterval(() => {
           dispatch(tickAction())
-        }, 100)
+        }, 50)
       }
 
       return action
@@ -717,6 +844,12 @@
   </script>
 
   <script> // View =======================================================================
+    const updateInnerHtmlIfChanged = (element, newContent) => {
+      if (element.innerHTML === newContent) return
+
+      element.innerHTML = newContent
+    }
+
     /** @type {Subscriber<IntervalTimerState>} */
     const uiUpdate = (state, prevState) => {
       const roundsAndSets = document.getElementById("roundsAndSets")
@@ -727,7 +860,10 @@
       const roundTypeText = document.getElementById("round-type")
       const workoutProgress = document.getElementById("workout-progress")
 
-      const timeRemaining = selectTimerSecondsRemaining(state)
+      const timerType = selectTimerType(state)
+
+      const millisecondsRemaining = selectTimerMillisecondsRemaining(state)
+      const secondsRemaining = selectTimerSecondsRemaining(state)
       const duration = selectTimerSecondsDuration(state)
 
       const isPaused = selectIsTimerPaused(state)
@@ -740,51 +876,63 @@
       const currentRound = selectCurrentRound(state)
       const rounds = selectRounds(state)
 
-      timerProgress.max = duration * 1000
-      timerProgress.value = timeRemaining ?? duration * 1000
-
-      roundsAndSets.innerHTML = `Round: ${currentRound}/${rounds} Set: ${currentSet}/${sets}`
-
-      if (isInitial) {
-        timer.innerHTML = "START"
-      } else if (isComplete) {
-        timer.innerHTML = "DONE"
+      // Timer
+      if (timerType !== TIMER_TYPE.COUNTDOWN) {
+        timerProgress.max = duration
+        timerProgress.value = millisecondsRemaining ?? duration
       } else {
-        timer.innerHTML = `${timeRemaining}`
+        timerProgress.max = 1
+        timerProgress.value = 1
       }
 
+      let timerText = ""
+      if (isInitial) {
+        timerText = "Start"
+      } else if (isComplete) {
+        timerText = "Done!"
+      } else {
+        timerText = secondsRemaining
+      }
+      updateInnerHtmlIfChanged(timer, timerText)
+
+      // Workout Progress Bar
       const workoutDuration = selectTotalTime(state)
       const workoutTimeElapsed = selectRoundedTimeElapsed(state)
 
       workoutProgress.max = workoutDuration
       workoutProgress.value = workoutTimeElapsed
 
-      const timerType = selectTimerType(state)
+      const roundsAndSetsContent = `Round: ${currentRound}/${rounds} Set: ${currentSet}/${sets}`
+      updateInnerHtmlIfChanged(roundsAndSets, roundsAndSetsContent)
 
+      // Timer Type
+      let newRoundTypeInfo = ""
       switch (timerType) {
         case TIMER_TYPE.INIT:
-          roundTypeText.innerHTML = "Let's go!"
+          newRoundTypeInfo = "Let's go!"
           break;
         case TIMER_TYPE.COUNTDOWN:
-          if (timeRemaining === 3) {
-            roundTypeText.innerHTML = "Ready"
-          } else if (timeRemaining === 2) {
-            roundTypeText.innerHTML = "Set"
+          if (secondsRemaining === 3) {
+            newRoundTypeInfo = "Ready"
+          } else if (secondsRemaining === 2) {
+            newRoundTypeInfo = "Set"
           } else {
-            roundTypeText.innerHTML = "Here we go!"
+            newRoundTypeInfo = "Go!"
           }
           break;
         case TIMER_TYPE.BREAK:
-          roundTypeText.innerHTML = "BREAK"
+          newRoundTypeInfo = "BREAK"
           break;
         case TIMER_TYPE.REST:
-          roundTypeText.innerHTML = "REST"
+          newRoundTypeInfo = "REST"
           break;
         case TIMER_TYPE.WORK:
-          roundTypeText.innerHTML = "WORK"
+          newRoundTypeInfo = "WORK"
           break;
       }
+      updateInnerHtmlIfChanged(roundTypeText, newRoundTypeInfo)
 
+      // Buttons
       pauseButton.style.display = !isStarted ? 'none' : 'block'
       startButton.style.display = isStarted ? 'none' : 'block'
     }
@@ -796,9 +944,9 @@
      * @type {object}
      * @property {number} rounds - The number of timers per set
      * @property {number} sets - The number of interval groups
-     * @property {number} breakLength - The length of time between sets in seconds
-     * @property {number} workLength - The length of time in each work timer
-     * @property {number} restLength - The length of time in each rest timer
+     * @property {number} breakLength - The length of time between sets in milliseconds
+     * @property {number} workLength - The length of time in each work timer in milliseconds
+     * @property {number} restLength - The length of time in each rest timer in milliseconds
      */
 
     /**
@@ -808,7 +956,7 @@
      * @property {TimerType} type
      * @property {?number} round - The current round number in the set
      * @property {?number} set - The current set number
-     * @property {?number} remaining - The number of seconds remainig for this timer
+     * @property {?number} remaining - The number of milliseconds remainig for this timer
      */
 
     /**
@@ -823,9 +971,9 @@
       config: {
         rounds: readQueryParam("rounds", 8),
         sets: readQueryParam("sets", 5),
-        breakLength: readQueryParam("break", 60),
-        restLength: readQueryParam("rest", 10),
-        workLength: readQueryParam("work", 20),
+        breakLength: readQueryParam("break", 60) * 1000,
+        restLength: readQueryParam("rest", 10) * 1000,
+        workLength: readQueryParam("work", 20) * 1000,
       },
       timer: {
         state: TIMER_STATE.INIT,
@@ -840,16 +988,10 @@
       pause: handlePauseTimer,
     }
 
-    const loggingMiddleware = (action, state, dispatch) => {
-      console.log(action)
-      console.log(state)
-      return action
-    }
-
     /** @type Array<Subscriber<IntervalTimerState>> */
     const subscribers = [uiUpdate, alarmSubscriber]
     /** @type Array<Middleware<IntervalTimerState>> */
-    const middleware = [loggingMiddleware, timerMiddleware]
+    const middleware = [timerMiddleware]
 
     /** @type Store<IntervalTimerState> */
     const store = createStore(initialState, reducer, subscribers, middleware)
@@ -860,7 +1002,7 @@
 
   <script> // Accent Color ===============================================================
     const setAccentColor = () => {
-      const accentParam = readQueryParam('accent', '')
+      const accentParam = (new URLSearchParams(window.location.search)).get('accent')
 
       let accentColorDark = '#284E13'
       let accentColorLight = '#93C47D'
@@ -927,9 +1069,9 @@
         config: {
           rounds: 8,
           sets: 5,
-          breakLength: 60,
-          restLength: 10,
-          workLength: 20,
+          breakLength: 60000,
+          restLength: 10000,
+          workLength: 20000,
         },
         timer: {
           state: TIMER_STATE.INIT,
@@ -942,7 +1084,7 @@
         type: TIMER_TYPE.WORK,
         round: 1,
         set: 1,
-        remaining: 20,
+        remaining: 20000,
       }
 
       const deepEquals = (obj1, obj2) => {
@@ -994,9 +1136,9 @@
 
       const tick_updates_state_for_just_tick = () => {
         // Given
-        const testState = {...baseTestState, timer: {...baseTimerState, remaining: 15}}
+        const testState = {...baseTestState, timer: {...baseTimerState, remaining: 15000}}
         const underTest = createStore(testState, reducer)
-        const expected = {...baseTestState, timer: {...baseTimerState, remaining: 14}}
+        const expected = {...baseTestState, timer: {...baseTimerState, remaining: 14950}}
 
         // When
         underTest.dispatch(tickAction())
@@ -1008,9 +1150,9 @@
 
       const tick_starts_first_round_if_countdown_complete = () => {
         // Given
-        const testState = {...baseTestState, timer: {...baseTimerState, type: TIMER_TYPE.COUNTDOWN, remaining: 1}}
+        const testState = {...baseTestState, timer: {...baseTimerState, type: TIMER_TYPE.COUNTDOWN, remaining: 50}}
         const underTest = createStore(testState, reducer)
-        const expected = {...baseTestState, timer: {...baseTimerState, type: TIMER_TYPE.WORK, remaining: 20}}
+        const expected = {...baseTestState, timer: {...baseTimerState, type: TIMER_TYPE.WORK, remaining: 20000}}
 
         // When
         underTest.dispatch(tickAction())
@@ -1022,7 +1164,7 @@
 
       const tick_sets_timer_complete_if_final_set_complete = () => {
         // Given
-        const testState = {...baseTestState, timer: {...baseTimerState, remaining: 1, round: 8, set: 5}}
+        const testState = {...baseTestState, timer: {...baseTimerState, remaining: 50, round: 8, set: 5}}
         const underTest = createStore(testState, reducer)
         const expected = {...baseTestState, timer: {...baseTimerState, remaining: 0, round: 8, set: 5, state: TIMER_STATE.COMPLETE}}
 
@@ -1036,9 +1178,9 @@
 
       const tick_sets_break_timer_if_set_complete = () => {
         // Given
-        const testState = {...baseTestState, timer: {...baseTimerState, round: 8, type: TIMER_TYPE.WORK, remaining: 1}}
+        const testState = {...baseTestState, timer: {...baseTimerState, round: 8, type: TIMER_TYPE.WORK, remaining: 50}}
         const underTest = createStore(testState, reducer)
-        const expected = {...baseTestState, timer: {...baseTimerState, round: 8, type: TIMER_TYPE.BREAK, remaining: 60}}
+        const expected = {...baseTestState, timer: {...baseTimerState, round: 8, type: TIMER_TYPE.BREAK, remaining: 60000}}
 
         // When
         underTest.dispatch(tickAction())
@@ -1050,9 +1192,9 @@
 
       const tick_starts_next_round_if_break_complete = () => {
         // Given
-        const testState = {...baseTestState, timer: {...baseTimerState, type: TIMER_TYPE.BREAK, remaining: 1, round: 8, set: 1}}
+        const testState = {...baseTestState, timer: {...baseTimerState, type: TIMER_TYPE.BREAK, remaining: 50, round: 8, set: 1}}
         const underTest = createStore(testState, reducer)
-        const expected = {...baseTestState, timer: {...baseTimerState, type: TIMER_TYPE.WORK, remaining: 20, round: 1, set: 2}}
+        const expected = {...baseTestState, timer: {...baseTimerState, type: TIMER_TYPE.WORK, remaining: 20000, round: 1, set: 2}}
 
         // When
         underTest.dispatch(tickAction())
@@ -1064,9 +1206,9 @@
 
       const tick_starts_rest_if_work_complete = () => {
         // Given
-        const testState = {...baseTestState, timer: {...baseTimerState, type: TIMER_TYPE.WORK, remaining: 1}}
+        const testState = {...baseTestState, timer: {...baseTimerState, type: TIMER_TYPE.WORK, remaining: 50}}
         const underTest = createStore(testState, reducer)
-        const expected = {...baseTestState, timer: {...baseTimerState, type: TIMER_TYPE.REST, remaining: 10}}
+        const expected = {...baseTestState, timer: {...baseTimerState, type: TIMER_TYPE.REST, remaining: 10000}}
 
         // When
         underTest.dispatch(tickAction())
@@ -1078,9 +1220,9 @@
 
       const tick_starts_work_if_rest_complete = () => {
         // Given
-        const testState = {...baseTestState, timer: {...baseTimerState, type: TIMER_TYPE.REST, remaining: 1, round: 2}}
+        const testState = {...baseTestState, timer: {...baseTimerState, type: TIMER_TYPE.REST, remaining: 50, round: 2}}
         const underTest = createStore(testState, reducer)
-        const expected = {...baseTestState, timer: {...baseTimerState, type: TIMER_TYPE.WORK, remaining: 20, round: 3}}
+        const expected = {...baseTestState, timer: {...baseTimerState, type: TIMER_TYPE.WORK, remaining: 20000, round: 3}}
 
         // When
         underTest.dispatch(tickAction())
