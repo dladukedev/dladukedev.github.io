@@ -54,6 +54,13 @@
       display: grid;
       gap: 16px;
       justify-content: start;
+      justify-items: start;
+    }
+
+    #interval-timer {
+      display: grid;
+      gap: 16px;
+      justify-content: start;
       justify-items: center;
     }
 
@@ -78,6 +85,16 @@
 
     #timer {
       font-size: 3.5rem;
+    }
+
+    #rounds-sets {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 32px;
+
+      :first-child {
+        text-align: end;
+      }
     }
 
     footer {
@@ -143,21 +160,22 @@
         <style id="style">
           progress { display: none; }
           :host {
-            --size: 250px;
-            --stroke-width: 12px;
+            --width: 250px;
+            --height: 12px;
           }
 
-          rx {
-            width: var(--size);
-            height: var(--stroke-width);
+          rect {
+            height: var(--height);
             fill: none;
           }
 
           .bg {
+            width: var(--width);
             fill: var(--color-container);
           }
 
           .fg {
+            width: calc((var(--progress) * var(--width)) / 100);
             /* --dash: calc((var(--progress) * var(--circumference)) / 100); */
             /* transform: rotate(-90deg); */
             /* transform-origin: var(--half-size) var(--half-size); */
@@ -173,7 +191,7 @@
           }
         </style>
         <progress max="${this._max}" value="${this._value}"></progress>
-        <svg width="250" height="12" viewBox="0 0 250 250" id="linear-progress">
+        <svg width="250" height="12" viewBox="0 0 250 12" id="linear-progress">
           <rect class="bg"></rect>
           <rect class="fg"></rect>
         </svg>
@@ -186,14 +204,18 @@
     render() {
       const outer = this.shadowRoot.querySelector('.fg');
 
-      outer.style.setProperty('transition', 'stroke-dasharray 50ms linear');
+      outer.style.setProperty('transition', 'width 500ms ease-out');
 
       outer.style.setProperty('--progress', this.percent);
+
+      const progress = this.shadowRoot.querySelector('progress');
+      progress.max = this._max;
+      progress.value = this._value;
     }
   }
+  window.customElements.define('linear-progress-bar', LinearProgressBar);
 
   class CircularProgressBar extends HTMLElement {
-
     static get observedAttributes() {
       return ['max', 'value'];
     }
@@ -311,6 +333,10 @@
       outer.style.setProperty('transition', animation);
 
       outer.style.setProperty('--progress', this.percent);
+
+      const progress = this.shadowRoot.querySelector('progress');
+      progress.max = this._max;
+      progress.value = this._value;
     }
   }
   window.customElements.define('circular-progress-bar', CircularProgressBar);
@@ -318,22 +344,27 @@
 
 <body>
 
-  <div id="timer-area">
-    <circular-progress-bar id="timer-progress"></circular-progress-bar>
-    <div id="timer-area-inner">
-      <p>
-        <span id="round-type"></span>
-      </p>
+  <div id="interval-timer">
+    <div id="timer-area">
+      <circular-progress-bar id="timer-progress"></circular-progress-bar>
+      <div id="timer-area-inner">
+        <p>
+          <span id="round-type"></span>
+        </p>
 
-      <span id="timer">READY</span>
+        <span id="timer">READY</span>
 
-      <button id="start-button" onclick="start()">START</button>
-      <button id="pause-button" onclick="pause()">PAUSE</button>
+        <button id="start-button" onclick="start()">START</button>
+        <button id="pause-button" onclick="pause()">PAUSE</button>
+      </div>
     </div>
-  </div>
 
-  <p id="roundsAndSets"></p>
-  <progress id="workout-progress" value="0"></progress>
+    <p id="rounds-sets">
+      <span id="sets-display"></span>
+      <span id="rounds-display"></span>
+    </p>
+    <linear-progress-bar id="sets-progress"></linear-progress-bar>
+  </div>
 
   <footer>
     <h3>Interval Timer</h3>
@@ -347,9 +378,9 @@
     <ul>
       <li>"sets" for the number of cycles in the timer, defaults to 5</li>
       <li>"rounds" for number of work timers in each set, defaults to 8</li>
-      <li>"workLength" for the length in seconds of the "work" timer, defaults to 20</li>
-      <li>"restLength" for the length in seconds of the "rest" timer between each round, defaults to 10</li>
-      <li>"breakLength" for the length in seconds of the "break" timer between each set, defaults to 60</li>
+      <li>"work" for the length in seconds of the "work" timer, defaults to 20</li>
+      <li>"rest" for the length in seconds of the "rest" timer between each round, defaults to 10</li>
+      <li>"break" for the length in seconds of the "break" timer between each set, defaults to 60</li>
     </ul>
     <br />
     <p>This is a micro-project, check the source to see the code and do what you want with it!</p>
@@ -467,7 +498,7 @@
 
   <script> // Timer ================================================================================
     /**
-     * @typedef {'INIT'|'REST'|'WORK'|'BREAK'|'COUNTDOWN'} TimerType
+     * @typedef {'INIT'|'REST'|'WORK'|'BREAK'|'COUNTDOWN'|'COMPLETE'} TimerType
      **/
 
     /**
@@ -481,6 +512,7 @@
       WORK: 'work',
       BREAK: 'break',
       COUNTDOWN: 'countdown',
+      COMPLETE: 'complete',
     }
 
     /**
@@ -581,7 +613,7 @@
      * Select the configured duration for the current timer type
      * @type Selector<IntervalTimerState, number> 
      **/
-    const selectTimerSecondsDuration = (state) => state.timer.type === TIMER_TYPE.COUNTDOWN ? 3000
+    const selectTimerDuration = (state) => state.timer.type === TIMER_TYPE.COUNTDOWN ? 3000
       : state.timer.type === TIMER_TYPE.BREAK ? state.config.breakLength
         : state.timer.type === TIMER_TYPE.REST ? state.config.restLength
           : state.timer.type === TIMER_TYPE.WORK ? state.config.workLength
@@ -655,7 +687,6 @@
     }
 
     // Reducers
-    // TODO: Separate actions/logic for begin vs resume?
 
     /** @type Reducer<IntervalTimerState, StartAction> */
     const handleStartTimer = (state, action) => {
@@ -689,7 +720,7 @@
 
     /** @type Reducer<IntervalTimerState, PauseAction> */
     const handlePauseTimer = (state, action) => {
-      if (selectIsTimerPaused(state)) return state
+      if (!selectIsTimerStarted(state)) return state
 
       return {
         ...state,
@@ -723,6 +754,7 @@
       } : isComplete ? {
         ...state.timer,
         remaining: 0,
+        type: TIMER_TYPE.COMPLETE,
         state: TIMER_STATE.COMPLETE
       } : isNextBreak ? {
         ...state.timer,
@@ -786,8 +818,8 @@
     }
 
     // Subscriber
-    /** @type {Subscriber<IntervalTimerState>} */
-    const alarmSubscriber = (state, prevState) => {
+    /** @type {(alarm: Alarm) => Subscriber<IntervalTimerState>} */
+    const alarmSubscriber = (alarm) => (state, prevState) => {
       const isRunning = selectIsTimerStarted(state) && selectIsTimerStarted(prevState)
       const wasCompleted = selectIsTimerComplete(state) && !selectIsTimerComplete(prevState)
 
@@ -795,49 +827,11 @@
       const currRemaining = selectTimerSecondsRemaining(state)
 
       if (isRunning && currRemaining > prevRemaining) {
-        try {
-          const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-          const oscillator = audioContext.createOscillator();
-          const gainNode = audioContext.createGain();
-
-          oscillator.connect(gainNode);
-          gainNode.connect(audioContext.destination);
-
-          oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
-          oscillator.type = 'sine';
-
-          gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
-          gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2);
-
-          oscillator.start(audioContext.currentTime);
-          oscillator.stop(audioContext.currentTime + 0.2);
-        } catch (error) {
-          console.log('Audio not supported');
-        }
+        alarm.playIntermediateSound()
       }
 
       if (wasCompleted) {
-        try {
-          const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-          [0, 0.3, 0.6].forEach((delay, index) => {
-            const oscillator = audioContext.createOscillator();
-            const gainNode = audioContext.createGain();
-
-            oscillator.connect(gainNode);
-            gainNode.connect(audioContext.destination);
-
-            oscillator.frequency.setValueAtTime(1000 + (index * 200), audioContext.currentTime + delay);
-            oscillator.type = 'sine';
-
-            gainNode.gain.setValueAtTime(0.1, audioContext.currentTime + delay);
-            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + delay + 0.2);
-
-            oscillator.start(audioContext.currentTime + delay);
-            oscillator.stop(audioContext.currentTime + delay + 0.2);
-          });
-        } catch (error) {
-          console.log('Audio not supported');
-        }
+        alarm.playCompleteSound()
       }
     }
 
@@ -852,19 +846,20 @@
 
     /** @type {Subscriber<IntervalTimerState>} */
     const uiUpdate = (state, prevState) => {
-      const roundsAndSets = document.getElementById("roundsAndSets")
+      const roundsDisplay = document.getElementById("rounds-display")
+      const setsDisplay = document.getElementById("sets-display")
       const timer = document.getElementById("timer")
       const timerProgress = document.getElementById("timer-progress")
       const startButton = document.getElementById("start-button")
       const pauseButton = document.getElementById("pause-button")
       const roundTypeText = document.getElementById("round-type")
-      const workoutProgress = document.getElementById("workout-progress")
+      const workoutProgress = document.getElementById("sets-progress")
 
       const timerType = selectTimerType(state)
 
       const millisecondsRemaining = selectTimerMillisecondsRemaining(state)
       const secondsRemaining = selectTimerSecondsRemaining(state)
-      const duration = selectTimerSecondsDuration(state)
+      const duration = selectTimerDuration(state)
 
       const isPaused = selectIsTimerPaused(state)
       const isInitial = selectIsTimerInitial(state)
@@ -891,7 +886,7 @@
       } else if (isComplete) {
         timerText = "Done!"
       } else {
-        timerText = secondsRemaining
+        timerText = secondsRemaining.toString()
       }
       updateInnerHtmlIfChanged(timer, timerText)
 
@@ -902,8 +897,11 @@
       workoutProgress.max = workoutDuration
       workoutProgress.value = workoutTimeElapsed
 
-      const roundsAndSetsContent = `Round: ${currentRound}/${rounds} Set: ${currentSet}/${sets}`
-      updateInnerHtmlIfChanged(roundsAndSets, roundsAndSetsContent)
+      const roundsText = `Round: ${currentRound}/${rounds}`
+      updateInnerHtmlIfChanged(roundsDisplay, roundsText);
+
+      const setsText = `Set: ${currentSet}/${sets}`
+      updateInnerHtmlIfChanged(setsDisplay, setsText);
 
       // Timer Type
       let newRoundTypeInfo = ""
@@ -929,6 +927,9 @@
         case TIMER_TYPE.WORK:
           newRoundTypeInfo = "WORK"
           break;
+        case TIMER_TYPE.COMPLETE:
+          newRoundTypeInfo = "&nbsp;"
+          break;
       }
       updateInnerHtmlIfChanged(roundTypeText, newRoundTypeInfo)
 
@@ -939,6 +940,53 @@
   </script>
 
   <script> // Main ================================================================================
+    /**
+     * @typedef Alarm
+     * @type {object}
+     * @property {() => void} playIntermediateSound
+     * @property {() => void} playCompleteSound
+     */
+
+    /** @type{Alarm}**/
+    const alarm = {
+      playIntermediateSound: () => {
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+
+        oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
+        oscillator.type = 'sine';
+
+        gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2);
+
+        oscillator.start(audioContext.currentTime);
+        oscillator.stop(audioContext.currentTime + 0.2);
+      },
+      playCompleteSound: () => {
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        [0, 0.3, 0.6].forEach((delay, index) => {
+          const oscillator = audioContext.createOscillator();
+          const gainNode = audioContext.createGain();
+
+          oscillator.connect(gainNode);
+          gainNode.connect(audioContext.destination);
+
+          oscillator.frequency.setValueAtTime(1000 + (index * 200), audioContext.currentTime + delay);
+          oscillator.type = 'sine';
+
+          gainNode.gain.setValueAtTime(0.1, audioContext.currentTime + delay);
+          gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + delay + 0.2);
+
+          oscillator.start(audioContext.currentTime + delay);
+          oscillator.stop(audioContext.currentTime + delay + 0.2);
+        });
+      }
+    };
+
     /**
      * @typedef IntervalTimerConfigState
      * @type {object}
@@ -989,7 +1037,7 @@
     }
 
     /** @type Array<Subscriber<IntervalTimerState>> */
-    const subscribers = [uiUpdate, alarmSubscriber]
+    const subscribers = [uiUpdate, alarmSubscriber(alarm)]
     /** @type Array<Middleware<IntervalTimerState>> */
     const middleware = [timerMiddleware]
 
@@ -1063,8 +1111,41 @@
   </script>
 
   <script>
+    const deepEquals = (obj1, obj2) => {
+      if (obj1 === obj2) return true
+
+      if (typeof obj1 !== 'object' || obj1 === null ||
+        typeof obj2 !== 'object' || obj2 === null) {
+        return false
+      }
+
+      const keys1 = Object.keys(obj1)
+      const keys2 = Object.keys(obj2)
+
+      if (keys1.length !== keys2.length) return false
+
+      for (const key of keys1) {
+        if (!keys2.includes(key) || !deepEquals(obj1[key], obj2[key])) {
+          return false
+        }
+      }
+      return true
+    }
+
+    const assert = (func, expected, actual) => {
+      if (deepEquals(actual, expected)) {
+        console.log(`${func}: Success!!`)
+      } else {
+        console.error(`${func}: ${actual} !== ${expected}`)
+        console.log("expected")
+        console.log(expected)
+        console.log("actual")
+        console.log(actual)
+      }
+    }
+
     // Tests
-    const test = () => {
+    const runTests = () => {
       const baseTestState = {
         config: {
           rounds: 8,
@@ -1087,38 +1168,708 @@
         remaining: 20000,
       }
 
-      const deepEquals = (obj1, obj2) => {
-        if (obj1 === obj2) return true
+      const selectRounds_returnsRounds = () => {
+        // Given
+        const testState = baseTestState;
+        const expected = 8;
 
-        if (typeof obj1 !== 'object' || obj1 === null ||
-          typeof obj2 !== 'object' || obj2 === null) {
-          return false
-        }
+        // When
+        const actual = selectRounds(testState);
 
-        const keys1 = Object.keys(obj1)
-        const keys2 = Object.keys(obj2)
-
-        if (keys1.length !== keys2.length) return false
-
-        for (const key of keys1) {
-          if (!keys2.includes(key) || !deepEquals(obj1[key], obj2[key])) {
-            return false
-          }
-        }
-        return true
+        // Then
+        assert(selectRounds_returnsRounds.name, expected, actual)
       }
 
-      const assert = (func, expected, actual) => {
-        if (deepEquals(actual, expected)) {
-          console.log(`${func}: Success!!`)
-        } else {
-          console.error(`${func}: ${actual} !== ${expected}`)
-          console.log("expected")
-          console.log(expected)
-          console.log("actual")
-          console.log(actual)
-        }
+      const selectSets_returnsSets = () => {
+        // Given
+        const testState = baseTestState;
+        const expected = 5;
+
+        // When
+        const actual = selectSets(testState);
+
+        // Then
+        assert(selectSets_returnsSets.name, expected, actual)
       }
+
+      const selectBreakLength_returnsBreakLength = () => {
+        // Given
+        const testState = baseTestState;
+        const expected = 60000;
+
+        // When
+        const actual = selectBreakLength(testState);
+
+        // Then
+        assert(selectBreakLength_returnsBreakLength.name, expected, actual)
+      }
+
+      const selectRestLength_returnsRestLength = () => {
+        // Given
+        const testState = baseTestState;
+        const expected = 10000;
+
+        // When
+        const actual = selectRestLength(testState);
+
+        // Then
+        assert(selectRestLength_returnsRestLength.name, expected, actual)
+      }
+
+      const selectWorkLength_returnsWorkLength = () => {
+        // Given
+        const testState = baseTestState;
+        const expected = 20000;
+
+        // When
+        const actual = selectWorkLength(testState);
+
+        // Then
+        assert(selectWorkLength_returnsWorkLength.name, expected, actual)
+      }
+
+      const selectIsTimerStarted_returnsTrue_whenTimerStarted = () => {
+        // Given
+        const testState = {...baseTestState, timer: {...baseTestState.timer, state: TIMER_STATE.STARTED}};
+        const expected = true;
+
+        // When
+        const actual = selectIsTimerStarted(testState);
+
+        // Then
+        assert(selectIsTimerStarted_returnsTrue_whenTimerStarted.name, expected, actual)
+      }
+
+      const selectIsTimerStarted_returnsFalse_whenTimerComplete = () => {
+        // Given
+        const testState = {...baseTestState, timer: {...baseTestState.timer, state: TIMER_STATE.COMPLETE}};
+        const expected = false;
+
+        // When
+        const actual = selectIsTimerStarted(testState);
+
+        // Then
+        assert(selectIsTimerStarted_returnsFalse_whenTimerComplete.name, expected, actual)
+      }
+
+      const selectIsTimerStarted_returnsFalse_whenTimerInit = () => {
+        // Given
+        const testState = {...baseTestState, timer: {...baseTestState.timer, state: TIMER_STATE.INIT}};
+        const expected = false;
+
+        // When
+        const actual = selectIsTimerStarted(testState);
+
+        // Then
+        assert(selectIsTimerStarted_returnsFalse_whenTimerInit.name, expected, actual)
+      }
+
+      const selectIsTimerStarted_returnsFalse_whenTimerPaused = () => {
+        // Given
+        const testState = {...baseTestState, timer: {...baseTestState.timer, state: TIMER_STATE.PAUSED}};
+        const expected = false;
+
+        // When
+        const actual = selectIsTimerStarted(testState);
+
+        // Then
+        assert(selectIsTimerStarted_returnsFalse_whenTimerPaused.name, expected, actual)
+      }
+
+      const selectIsTimerComplete_returnsFalse_whenTimerStarted = () => {
+        // Given
+        const testState = {...baseTestState, timer: {...baseTestState.timer, state: TIMER_STATE.STARTED}};
+        const expected = false;
+
+        // When
+        const actual = selectIsTimerComplete(testState);
+
+        // Then
+        assert(selectIsTimerComplete_returnsFalse_whenTimerStarted.name, expected, actual)
+      }
+
+      const selectIsTimerComplete_returnsTrue_whenTimerComplete = () => {
+        // Given
+        const testState = {...baseTestState, timer: {...baseTestState.timer, state: TIMER_STATE.COMPLETE}};
+        const expected = true;
+
+        // When
+        const actual = selectIsTimerComplete(testState);
+
+        // Then
+        assert(selectIsTimerComplete_returnsTrue_whenTimerComplete.name, expected, actual)
+      }
+
+      const selectIsTimerComplete_returnsFalse_whenTimerInit = () => {
+        // Given
+        const testState = {...baseTestState, timer: {...baseTestState.timer, state: TIMER_STATE.INIT}};
+        const expected = false;
+
+        // When
+        const actual = selectIsTimerComplete(testState);
+
+        // Then
+        assert(selectIsTimerComplete_returnsFalse_whenTimerInit.name, expected, actual)
+      }
+
+      const selectIsTimerComplete_returnsFalse_whenTimerPaused = () => {
+        // Given
+        const testState = {...baseTestState, timer: {...baseTestState.timer, state: TIMER_STATE.PAUSED}};
+        const expected = false;
+
+        // When
+        const actual = selectIsTimerComplete(testState);
+
+        // Then
+        assert(selectIsTimerComplete_returnsFalse_whenTimerPaused.name, expected, actual)
+      }
+
+      const selectIsTimerInitial_returnsFalse_whenTimerStarted = () => {
+        // Given
+        const testState = {...baseTestState, timer: {...baseTestState.timer, state: TIMER_STATE.STARTED}};
+        const expected = false;
+
+        // When
+        const actual = selectIsTimerInitial(testState);
+
+        // Then
+        assert(selectIsTimerInitial_returnsFalse_whenTimerStarted.name, expected, actual)
+      }
+
+      const selectIsTimerInitial_returnsFalse_whenTimerComplete = () => {
+        // Given
+        const testState = {...baseTestState, timer: {...baseTestState.timer, state: TIMER_STATE.COMPLETE}};
+        const expected = false;
+
+        // When
+        const actual = selectIsTimerInitial(testState);
+
+        // Then
+        assert(selectIsTimerInitial_returnsFalse_whenTimerComplete.name, expected, actual)
+      }
+
+      const selectIsTimerInitial_returnsTrue_whenTimerInit = () => {
+        // Given
+        const testState = {...baseTestState, timer: {...baseTestState.timer, state: TIMER_STATE.INIT}};
+        const expected = true;
+
+        // When
+        const actual = selectIsTimerInitial(testState);
+
+        // Then
+        assert(selectIsTimerInitial_returnsTrue_whenTimerInit.name, expected, actual)
+      }
+
+      const selectIsTimerInitial_returnsFalse_whenTimerPaused = () => {
+        // Given
+        const testState = {...baseTestState, timer: {...baseTestState.timer, state: TIMER_STATE.PAUSED}};
+        const expected = false;
+
+        // When
+        const actual = selectIsTimerInitial(testState);
+
+        // Then
+        assert(selectIsTimerInitial_returnsFalse_whenTimerPaused.name, expected, actual)
+      }
+
+      const selectIsTimerPaused_returnsFalse_whenTimerStarted = () => {
+        // Given
+        const testState = {...baseTestState, timer: {...baseTestState.timer, state: TIMER_STATE.STARTED}};
+        const expected = false;
+
+        // When
+        const actual = selectIsTimerPaused(testState);
+
+        // Then
+        assert(selectIsTimerPaused_returnsFalse_whenTimerStarted.name, expected, actual)
+      }
+
+      const selectIsTimerPaused_returnsFalse_whenTimerComplete = () => {
+        // Given
+        const testState = {...baseTestState, timer: {...baseTestState.timer, state: TIMER_STATE.COMPLETE}};
+        const expected = false;
+
+        // When
+        const actual = selectIsTimerPaused(testState);
+
+        // Then
+        assert(selectIsTimerPaused_returnsFalse_whenTimerComplete.name, expected, actual)
+      }
+
+      const selectIsTimerPaused_returnsFalse_whenTimerInit = () => {
+        // Given
+        const testState = {...baseTestState, timer: {...baseTestState.timer, state: TIMER_STATE.INIT}};
+        const expected = false;
+
+        // When
+        const actual = selectIsTimerPaused(testState);
+
+        // Then
+        assert(selectIsTimerPaused_returnsFalse_whenTimerInit.name, expected, actual)
+      }
+
+      const selectIsTimerPaused_returnsTrue_whenTimerPaused = () => {
+        // Given
+        const testState = {...baseTestState, timer: {...baseTestState.timer, state: TIMER_STATE.PAUSED}};
+        const expected = true;
+
+        // When
+        const actual = selectIsTimerPaused(testState);
+
+        // Then
+        assert(selectIsTimerPaused_returnsTrue_whenTimerPaused.name, expected, actual)
+      }
+
+      const selectCurrentRound_returnsCurrentRound = () => {
+        // Given
+        const testState = {...baseTestState, timer: {...baseTimerState, round: 3}};
+        const expected = 3;
+
+        // When
+        const actual = selectCurrentRound(testState);
+
+        // Then
+        assert(selectCurrentRound_returnsCurrentRound.name, expected, actual)
+      }
+
+      const selectCurrentRound_returnsOne_whenNoRoundPresent = () => {
+        // Given
+        const testState = baseTestState;
+        const expected = 1;
+
+        // When
+        const actual = selectCurrentRound(testState);
+
+        // Then
+        assert(selectCurrentRound_returnsOne_whenNoRoundPresent.name, expected, actual)
+      }
+
+      const selectCurrentSet_returnsCurrentSet = () => {
+        // Given
+        const testState = {...baseTestState, timer: {...baseTimerState, set: 3}};
+        const expected = 3;
+
+        // When
+        const actual = selectCurrentSet(testState);
+
+        // Then
+        assert(selectCurrentSet_returnsCurrentSet.name, expected, actual)
+      }
+
+      const selectCurrentSet_returnsOne_whenNoSetPresent = () => {
+        // Given
+        const testState = baseTestState;
+        const expected = 1;
+
+        // When
+        const actual = selectCurrentSet(testState);
+
+        // Then
+        assert(selectCurrentSet_returnsOne_whenNoSetPresent.name, expected, actual)
+      }
+
+      const selectTimerType_returnsTimerType = () => {
+        // Given
+        const testState = {...baseTestState, timer: {...baseTestState.timer, type: TIMER_TYPE.WORK}};
+        const expected = TIMER_TYPE.WORK;
+
+        // When
+        const actual = selectTimerType(testState);
+
+        // Then
+        assert(selectTimerType_returnsTimerType.name, expected, actual)
+      }
+
+      const selectTimerSecondsRemaining_returnsTimeRoundedUp = () => {
+        // Given
+        const testState = {...baseTestState, timer: {...baseTimerState, remaining: 11111}}
+        const expected = 12
+
+        // When
+        const actual = selectTimerSecondsRemaining(testState)
+
+        // Then
+        assert(selectTimerSecondsRemaining_returnsTimeRoundedUp.name, expected, actual)
+      }
+
+      const selectTimerMillisecondsRemaining_returnsTimeExactly = () => {
+        // Given
+        const testState = {...baseTestState, timer: {...baseTimerState, remaining: 11111}}
+        const expected = 11111
+
+        // When
+        const actual = selectTimerMillisecondsRemaining(testState)
+
+        // Then
+        assert(selectTimerMillisecondsRemaining_returnsTimeExactly.name, expected, actual)
+      }
+
+      const selectTimerDuration_returnsCountdown_forCountdownTimer = () => {
+        // Given
+        const testState = {...baseTestState, timer: {...baseTimerState, type: TIMER_TYPE.COUNTDOWN}}
+        const expected = 3000
+
+        // When
+        const actual = selectTimerDuration(testState)
+
+        // Then
+        assert(selectTimerDuration_returnsCountdown_forCountdownTimer.name, expected, actual)
+      }
+
+      const selectTimerDuration_returnsBreakLength_forBreakTimer = () => {
+        // Given
+        const testState = {...baseTestState, timer: {...baseTimerState, type: TIMER_TYPE.BREAK}}
+        const expected = 60000
+
+        // When
+        const actual = selectTimerDuration(testState)
+
+        // Then
+        assert(selectTimerDuration_returnsBreakLength_forBreakTimer.name, expected, actual)
+      }
+
+      const selectTimerDuration_returnsRestLength_forRestTimer = () => {
+        // Given
+        const testState = {...baseTestState, timer: {...baseTimerState, type: TIMER_TYPE.REST}}
+        const expected = 10000
+
+        // When
+        const actual = selectTimerDuration(testState)
+
+        // Then
+        assert(selectTimerDuration_returnsRestLength_forRestTimer.name, expected, actual)
+      }
+
+      const selectTimerDuration_returnsWorkLength_forWorkTimer = () => {
+        // Given
+        const testState = {...baseTestState, timer: {...baseTimerState, type: TIMER_TYPE.WORK}}
+        const expected = 20000
+
+        // When
+        const actual = selectTimerDuration(testState)
+
+        // Then
+        assert(selectTimerDuration_returnsWorkLength_forWorkTimer.name, expected, actual)
+      }
+
+      const selectSetLength_returnsSumOfSetLength = () => {
+        // Given
+        const testState = baseTestState
+        const expected = 230000
+
+        // When
+        const actual = selectSetLength(testState)
+
+        // Then
+        assert(selectSetLength_returnsSumOfSetLength.name, expected, actual)
+      }
+
+      const selectTotalTime_returnsTotalTime = () => {
+        // Given
+        const testState = baseTestState
+        const expected = 1390000
+
+        // When
+        const actual = selectTotalTime(testState)
+
+        // Then
+        assert(selectTotalTime_returnsTotalTime.name, expected, actual)
+      }
+
+      const selectRoundedTimeElapsed_returnsZero_whenInitial = () => {
+        // Given
+        const testState = baseTestState
+        const expected = 0
+
+        // When
+        const actual = selectRoundedTimeElapsed(testState)
+
+        // Then
+        assert(selectRoundedTimeElapsed_returnsZero_whenInitial.name, expected, actual)
+      }
+
+      const selectRoundedTimeElapsed_returnsZero_duringCountdown = () => {
+        // Given
+        const testState = {...baseTestState, timer: {...baseTimerState, type: TIMER_TYPE.COUNTDOWN, remaining: 1000}}
+        const expected = 0
+
+        // When
+        const actual = selectRoundedTimeElapsed(testState)
+
+        // Then
+        assert(selectRoundedTimeElapsed_returnsZero_whenInitial.name, expected, actual)
+      }
+
+      const selectRoundedTimeElapsed_returnsZero_afterCountdown = () => {
+        // Given
+        const testState = {...baseTestState, timer: baseTimerState}
+        const expected = 0
+
+        // When
+        const actual = selectRoundedTimeElapsed(testState)
+
+        // Then
+        assert(selectRoundedTimeElapsed_returnsZero_whenInitial.name, expected, actual)
+      }
+
+      const selectRoundedTimeElapsed_returnsTime_afterWork = () => {
+        // Given
+        const testState = {...baseTestState, timer: {...baseTimerState, type: TIMER_TYPE.REST, remaining: 10000}}
+        const expected = 20000
+
+        // When
+        const actual = selectRoundedTimeElapsed(testState)
+
+        // Then
+        assert(selectRoundedTimeElapsed_returnsTime_afterWork.name, expected, actual)
+      }
+
+      const selectRoundedTimeElapsed_returnsTime_afterRest = () => {
+        // Given
+        const testState = {...baseTestState, timer: {...baseTimerState, round: 2, type: TIMER_TYPE.Work, remaining: 20000}}
+        const expected = 30000
+
+        // When
+        const actual = selectRoundedTimeElapsed(testState)
+
+        // Then
+        assert(selectRoundedTimeElapsed_returnsTime_afterRest.name, expected, actual)
+      }
+
+      const selectRoundedTimeElapsed_returnsTime_duringBreak = () => {
+        // Given
+        const testState = {...baseTestState, timer: {...baseTimerState, round: 8, type: TIMER_TYPE.BREAK, remaining: 60000}}
+        const expected = 230000
+
+        // When
+        const actual = selectRoundedTimeElapsed(testState)
+
+        // Then
+        assert(selectRoundedTimeElapsed_returnsTime_duringBreak.name, expected, actual)
+      }
+
+      const selectRoundedTimeElapsed_returnsTime_afterBreak = () => {
+        // Given
+        const testState = {...baseTestState, timer: {...baseTimerState, set: 2, type: TIMER_TYPE.Work, remaining: 20000}}
+        const expected = 290000
+
+        // When
+        const actual = selectRoundedTimeElapsed(testState)
+
+        // Then
+        assert(selectRoundedTimeElapsed_returnsTime_afterBreak.name, expected, actual)
+      }
+
+      const selectRoundedTimeElapsed_returnsSameTimeForStartAndMidTimer = () => {
+        // Given
+        const testStateStart = {...baseTestState, timer: {...baseTimerState, set: 2, type: TIMER_TYPE.Work, remaining: 20000}}
+        const testStateMid = {...baseTestState, timer: {...baseTimerState, set: 2, type: TIMER_TYPE.Work, remaining: 5000}}
+
+        // When
+        const startElapsed = selectRoundedTimeElapsed(testStateStart)
+        const middleElapsed = selectRoundedTimeElapsed(testStateMid)
+
+        // Then
+        assert(selectRoundedTimeElapsed_returnsSameTimeForStartAndMidTimer.name, startElapsed, middleElapsed)
+      }
+
+      const selectRoundedTimeElapsed_returnsTime_whenInMiddleOfTimer = () => {
+        // Given
+        const testState = {...baseTestState, timer: {...baseTimerState, round: 3, set: 5, type: TIMER_TYPE.Rest, remaining: 60000}}
+        const expected = 1220000
+
+        // When
+        const actual = selectRoundedTimeElapsed(testState)
+
+        // Then
+        assert(selectRoundedTimeElapsed_returnsTime_whenInMiddleOfTimer.name, expected, actual)
+      }
+
+      const selectRoundedTimeElapsed_returnsTime_whenNearlyComplete = () => {
+        // Given
+        const testState = {...baseTestState, timer: {...baseTimerState, round: 8, set: 5, type: TIMER_TYPE.Work, remaining: 20000}}
+        const expected = 1370000
+
+        // When
+        const actual = selectRoundedTimeElapsed(testState)
+
+        // Then
+        assert(selectRoundedTimeElapsed_returnsTime_whenNearlyComplete.name, expected, actual)
+      }
+
+      const selectRoundedTimeElapsed_returnsTime_whenComplete = () => {
+        // Given
+        const testState = {...baseTestState, timer: {...baseTimerState, remaining: 0, round: 8, set: 5, state: TIMER_STATE.COMPLETE, type: TIMER_TYPE.COMPLETE}}
+        const expected = 1390000
+
+        // When
+        const actual = selectRoundedTimeElapsed(testState)
+
+        // Then
+        assert(selectRoundedTimeElapsed_returnsTime_whenComplete.name, expected, actual)
+      }
+
+      selectRoundedTimeElapsed_returnsZero_whenInitial()
+      selectRoundedTimeElapsed_returnsZero_duringCountdown()
+      selectRoundedTimeElapsed_returnsZero_afterCountdown()
+      selectRoundedTimeElapsed_returnsTime_afterWork()
+      selectRoundedTimeElapsed_returnsTime_afterRest()
+      selectRoundedTimeElapsed_returnsTime_duringBreak()
+      selectRoundedTimeElapsed_returnsTime_afterBreak()
+      selectRoundedTimeElapsed_returnsSameTimeForStartAndMidTimer()
+      selectRoundedTimeElapsed_returnsTime_whenInMiddleOfTimer()
+      selectRoundedTimeElapsed_returnsTime_whenNearlyComplete()
+      selectRoundedTimeElapsed_returnsTime_whenComplete()
+
+      selectRounds_returnsRounds()
+      selectSets_returnsSets()
+      selectRestLength_returnsRestLength()
+      selectWorkLength_returnsWorkLength()
+      selectBreakLength_returnsBreakLength()
+
+      selectIsTimerStarted_returnsFalse_whenTimerInit()
+      selectIsTimerStarted_returnsTrue_whenTimerStarted()
+      selectIsTimerStarted_returnsFalse_whenTimerPaused()
+      selectIsTimerStarted_returnsFalse_whenTimerComplete()
+
+      selectIsTimerComplete_returnsFalse_whenTimerInit()
+      selectIsTimerComplete_returnsFalse_whenTimerStarted()
+      selectIsTimerComplete_returnsFalse_whenTimerPaused()
+      selectIsTimerComplete_returnsTrue_whenTimerComplete()
+
+      selectIsTimerInitial_returnsTrue_whenTimerInit()
+      selectIsTimerInitial_returnsFalse_whenTimerStarted()
+      selectIsTimerInitial_returnsFalse_whenTimerPaused()
+      selectIsTimerInitial_returnsFalse_whenTimerComplete()
+
+      selectIsTimerPaused_returnsFalse_whenTimerInit()
+      selectIsTimerPaused_returnsFalse_whenTimerStarted()
+      selectIsTimerPaused_returnsTrue_whenTimerPaused()
+      selectIsTimerPaused_returnsFalse_whenTimerComplete()
+
+      selectCurrentRound_returnsCurrentRound()
+      selectCurrentRound_returnsOne_whenNoRoundPresent()
+      selectCurrentSet_returnsCurrentSet()
+      selectCurrentSet_returnsOne_whenNoSetPresent()
+
+      selectTimerType_returnsTimerType()
+
+      selectTimerSecondsRemaining_returnsTimeRoundedUp()
+      selectTimerMillisecondsRemaining_returnsTimeExactly()
+
+      selectTimerDuration_returnsCountdown_forCountdownTimer()
+      selectTimerDuration_returnsWorkLength_forWorkTimer()
+      selectTimerDuration_returnsRestLength_forRestTimer()
+      selectTimerDuration_returnsBreakLength_forBreakTimer()
+
+      selectSetLength_returnsSumOfSetLength()
+      selectTotalTime_returnsTotalTime()
+
+      const handleStartTimer_doesNothingIfStarted = () => {
+        // Given
+        const testState = {...baseTestState, timer: {...baseTimerState, state: TIMER_STATE.STARTED}};
+        const expected = {...baseTestState, timer: {...baseTimerState, state: TIMER_STATE.STARTED}};
+
+        // When
+        const actual = handleStartTimer(testState, startAction());
+
+        // Then
+        assert(handleStartTimer_doesNothingIfStarted.name, expected, actual)
+      };
+
+      const handleStartTimer_resumedTimerIfPaused = () => {
+        // Given
+        const testState = {...baseTestState, timer: {...baseTimerState, state: TIMER_STATE.PAUSED}};
+        const expected = {...baseTestState, timer: {...baseTimerState, state: TIMER_STATE.STARTED}};
+
+        // When
+        const actual = handleStartTimer(testState, startAction());
+
+        // Then
+        assert(handleStartTimer_resumedTimerIfPaused.name, expected, actual)
+      };
+
+      const handleStartTimer_startsTimerIfInitial = () => {
+        // Given
+        const testState = {...baseTestState, timer: {type: TIMER_TYPE.INIT, state: TIMER_STATE.INIT}};
+        const expected = {...baseTestState, timer: {remaining: 3000, round: 1, set: 1, type: TIMER_TYPE.COUNTDOWN, state: TIMER_STATE.STARTED}};
+
+        // When
+        const actual = handleStartTimer(testState, startAction());
+
+        // Then
+        assert(handleStartTimer_startsTimerIfInitial.name, expected, actual)
+      };
+
+      const handleStartTimer_restartsTimerIfComplete = () => {
+        // Given
+        const testState = {...baseTestState, timer: {round: 8, set: 5, remaining: 0, type: TIMER_TYPE.COMPLETE, state: TIMER_STATE.COMPLETE}};
+        const expected = {...baseTestState, timer: {remaining: 3000, round: 1, set: 1, type: TIMER_TYPE.COUNTDOWN, state: TIMER_STATE.STARTED}};
+
+        // When
+        const actual = handleStartTimer(testState, startAction());
+
+        // Then
+        assert(handleStartTimer_restartsTimerIfComplete.name, expected, actual)
+      };
+
+      handleStartTimer_doesNothingIfStarted()
+      handleStartTimer_resumedTimerIfPaused()
+      handleStartTimer_startsTimerIfInitial()
+      handleStartTimer_restartsTimerIfComplete()
+
+      const handlePauseTimer_pausesTimer_whenStarted = () => {
+        // Given
+        const testState = {...baseTestState, timer: baseTimerState};
+        const expected = {...baseTestState, timer: {...baseTimerState, state: TIMER_STATE.PAUSED}};
+
+        // When
+        const actual = handlePauseTimer(testState, pauseAction());
+
+        // Then
+        assert(handlePauseTimer_pausesTimer_whenStarted.name, expected, actual)
+      }
+
+      const handlePauseTimer_doesNothing_whenPaused = () => {
+        // Given
+        const testState = {...baseTestState, timer: {...baseTimerState, state: TIMER_STATE.PAUSED}};
+        const expected = {...baseTestState, timer: {...baseTimerState, state: TIMER_STATE.PAUSED}};
+
+        // When
+        const actual = handlePauseTimer(testState, pauseAction());
+
+        // Then
+        assert(handlePauseTimer_doesNothing_whenPaused.name, expected, actual)
+      }
+
+      const handlePauseTimer_doesNothing_whenInit = () => {
+        // Given
+        const testState = {...baseTestState, timer: {...baseTimerState, state: TIMER_STATE.INIT}};
+        const expected = {...baseTestState, timer: {...baseTimerState, state: TIMER_STATE.INIT}};
+
+        // When
+        const actual = handlePauseTimer(testState, pauseAction());
+
+        // Then
+        assert(handlePauseTimer_doesNothing_whenInit.name, expected, actual)
+      }
+
+      const handlePauseTimer_doesNothing_whenComplete = () => {
+        // Given
+        const testState = {...baseTestState, timer: {...baseTimerState, state: TIMER_STATE.COMPLETE}};
+        const expected = {...baseTestState, timer: {...baseTimerState, state: TIMER_STATE.COMPLETE}};
+
+        // When
+        const actual = handlePauseTimer(testState, pauseAction());
+
+        // Then
+        assert(handlePauseTimer_doesNothing_whenComplete.name, expected, actual)
+      }
+
+      handlePauseTimer_pausesTimer_whenStarted()
+      handlePauseTimer_doesNothing_whenPaused()
+      handlePauseTimer_doesNothing_whenInit()
+      handlePauseTimer_doesNothing_whenComplete()
 
       const tick_does_nothing_if_timer_not_started = () => {
         // Given
@@ -1166,7 +1917,7 @@
         // Given
         const testState = {...baseTestState, timer: {...baseTimerState, remaining: 50, round: 8, set: 5}}
         const underTest = createStore(testState, reducer)
-        const expected = {...baseTestState, timer: {...baseTimerState, remaining: 0, round: 8, set: 5, state: TIMER_STATE.COMPLETE}}
+        const expected = {...baseTestState, timer: {...baseTimerState, remaining: 0, round: 8, set: 5, state: TIMER_STATE.COMPLETE, type: TIMER_TYPE.COMPLETE}}
 
         // When
         underTest.dispatch(tickAction())
@@ -1240,6 +1991,110 @@
       tick_sets_timer_complete_if_final_set_complete()
       tick_starts_rest_if_work_complete()
       tick_starts_work_if_rest_complete()
+
+      const tickAction_returnsTheCorrectAction = () => {
+        // Given
+        const expected = {type: TIMER_ACTION.TICK}
+
+        // When
+        const actual = tickAction()
+
+        // Then
+        assert(tickAction_returnsTheCorrectAction.name, expected, actual)
+      }
+
+      const startAction_returnsTheCorrectAction = () => {
+        // Given
+        const expected = {type: TIMER_ACTION.START}
+
+        // When
+        const actual = startAction()
+
+        // Then
+        assert(startAction_returnsTheCorrectAction.name, expected, actual)
+      }
+
+      const pauseAction_returnsTheCorrectAction = () => {
+        // Given
+        const expected = {type: TIMER_ACTION.PAUSE}
+
+        // When
+        const actual = pauseAction()
+
+        // Then
+        assert(pauseAction_returnsTheCorrectAction.name, expected, actual)
+      }
+
+      tickAction_returnsTheCorrectAction()
+      startAction_returnsTheCorrectAction()
+      pauseAction_returnsTheCorrectAction()
+
+      const alarmSubscriber_doesNothing_ifNoRelevantChange = () => {
+        // Given
+        const playedAlarm = false;
+        const testAlarm = {
+          playCompleteSound: () => {playedAlarm = true},
+          playIntermediateSound: () => {playedAlarm = true},
+        }
+
+        const testState = baseTestState
+        const prevTestState = baseTestState
+
+        const expected = false
+
+        // When
+        alarmSubscriber(testAlarm)(testState, prevTestState)
+        const actual = playedAlarm
+
+        // Then
+        assert(alarmSubscriber_doesNothing_ifNoRelevantChange.name, expected, actual)
+      }
+
+      const alarmSubscriber_playsIntermediateOnChange = () => {
+        // Given
+        const played = {complete: false, intermediate: false};
+        const testAlarm = {
+          playCompleteSound: () => {played.complete = true},
+          playIntermediateSound: () => {played.intermediate = true},
+        }
+
+        const prevTestState = {...baseTestState, timer: {...baseTimerState, state: TIMER_STATE.STARTED, type: TIMER_TYPE.WORK, remaining: 50}}
+        const testState = {...baseTestState, timer: {...baseTimerState, state: TIMER_STATE.STARTED, type: TIMER_TYPE.REST, remaining: 10000}}
+
+        const expected = {complete: false, intermediate: true}
+
+        // When
+        alarmSubscriber(testAlarm)(testState, prevTestState)
+        const actual = played
+
+        // Then
+        assert(alarmSubscriber_playsIntermediateOnChange.name, expected, actual)
+      }
+
+      const alarmSubscriber_playsCompleteWhenDone = () => {
+        // Given
+        const played = {complete: false, intermediate: false};
+        const testAlarm = {
+          playCompleteSound: () => {played.complete = true},
+          playIntermediateSound: () => {played.intermediate = true},
+        }
+
+        const prevTestState = {...baseTestState, timer: {...baseTimerState, remaining: 50, round: 8, set: 5}}
+        const testState = {...baseTestState, timer: {...baseTimerState, remaining: 0, round: 8, set: 5, state: TIMER_STATE.COMPLETE, type: TIMER_TYPE.COMPLETE}}
+
+        const expected = {complete: true, intermediate: false}
+
+        // When
+        alarmSubscriber(testAlarm)(testState, prevTestState)
+        const actual = played
+
+        // Then
+        assert(alarmSubscriber_playsCompleteWhenDone.name, expected, actual)
+      }
+
+      alarmSubscriber_doesNothing_ifNoRelevantChange()
+      alarmSubscriber_playsIntermediateOnChange()
+      alarmSubscriber_playsCompleteWhenDone()
     }
   </script>
 </body>
