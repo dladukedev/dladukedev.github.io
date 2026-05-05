@@ -1,0 +1,2179 @@
+<!-- MIT License - Copyright (c) 2025 Donovan J LaDuke -->
+
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Timeblock Planner</title>
+  <link rel="shortcut icon"
+    href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' height='24px' viewBox='0 -960 960 960' width='24px' fill='%23e3e3e3'%3E%3Cpath d='M200-280q-33 0-56.5-23.5T120-360v-240q0-33 23.5-56.5T200-680h560q33 0 56.5 23.5T840-600v240q0 33-23.5 56.5T760-280H200Zm0-80h560v-240H200v240Zm-80-400v-80h720v80H120Zm0 640v-80h720v80H120Zm80-480v240-240Z'/%3E%3C/svg%3E">
+
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      font-family: 'Arial';
+      box-sizing: border-box;
+    }
+
+    :root {
+      color-scheme: light dark;
+      --color-background: light-dark(#FFFFFF, #000000);
+      --color-highlight: light-dark(#F3F3F3, #121212);
+      --color-container: light-dark(#EFEFEF, #222222);
+      --color-container-highlight: light-dark(#D9D9D9, #333333);
+      --color-pop: light-dark(#284E13, #93C47D);
+      --color-pop-container: light-dark(#93C47D, #284E13);
+      --color-content: light-dark(#1F1F1F, #FFFFFF);
+      --color-content-secondary: light-dark(#333333, #CCCCCC);
+      --color-error: light-dark(#EA9999, #660000);
+    }
+
+    a {
+      color: var(--color-pop);
+    }
+
+    footer {
+      ul {
+        margin: 0 16px;
+      }
+    }
+
+    body {
+      margin: 32px;
+      background-color: var(--color-background);
+      color: var(--color-content);
+      display: grid;
+      gap: 24px;
+      justify-content: start;
+    }
+
+    #timeline {
+      position: relative;
+      width: 100%;
+      max-width: 480px;
+    }
+
+    .hour-marker {
+      position: absolute;
+      height: 2px;
+      width: calc(100% - 20px);
+      background-color: var(--color-highlight);
+      margin-left: 20px;
+    }
+
+    .hour-marker-indicator {
+      position: absolute;
+      font-size: .75rem;
+      width: 16px;
+      text-align: right;
+    }
+
+    .half-hour-marker {
+      position: absolute;
+      height: 1px;
+      margin-left: 20px;
+      width: calc(100% - 20px);
+      background-color: var(--color-highlight);
+    }
+
+    #current-time {
+      position: absolute;
+      height: 1px;
+      margin-left: 20px;
+      width: calc(100% - 20px);
+      background-color: var(--color-pop);
+    }
+
+    .time-block {
+      position: absolute;
+      background-color: var(--color-container);
+      margin-left: 36px;
+      margin-right: 16px;
+      width: calc(100% - 52px);
+      padding: 8px;
+      cursor: grab;
+    }
+
+    .time-block-dragging {
+      background-color: var(--color-container-highlight);
+      cursor: grabbing;
+    }
+
+    .time-block-resizing {
+      background-color: var(--color-container-highlight);
+      cursor: ns-resize;
+    }
+
+    .block-title {
+      position: absolute;
+      cursor: text;
+      top: 8px;
+      left: 8px;
+      right: 32px;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      overflow: hidden;
+      position: absolute;
+    }
+
+    .block-title:focus {
+      outline: none;
+      text-overflow: clip;
+    }
+
+    .block-title:empty::before {
+      content: 'Untitled Block';
+      color: var(--color-content-secondary);
+    }
+
+    .close-button {
+      background-color: transparent;
+      border: 1px solid transparent;
+      cursor: pointer;
+      position: absolute;
+      top: 4px;
+      right: 4px;
+      border-radius: 50%;
+      height: 24px;
+      width: 24px;
+      text-align: center;
+    }
+
+    .close-button:hover {
+      border-color: var(--color-content);
+    }
+
+    .drag-handle-container {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      display: grid;
+      place-content: center;
+      padding: 4px;
+      cursor: ns-resize;
+      grid-template-columns: minmax(64px, 148px);
+    }
+
+    .drag-handle {
+      background-color: transparent;
+      height: 2px;
+      margin: 0 24px;
+      background-color: var(--color-content-secondary);
+    }
+
+    .drag-handle-container:hover .drag-handle,
+    .time-block-resizing .drag-handle {
+      background-color: var(--color-content);
+    }
+  </style>
+</head>
+
+
+<body>
+
+  <div id="timeline">
+    <div id="blocks"></div>
+    <div id="current-time"></div>
+  </div>
+
+  <footer>
+    <h3>Timeblock Planner</h3>
+    <br />
+
+    <p>A tool for laying out your time blocks for the day</p>
+    <br />
+    <p>To setup the timeblock planner</p>
+    <ul>
+      <li>Add a Block - Click an empty space then drag to size</li>
+      <li>Remove a Blocks - Click the the "✖" button in the corner of a block</li>
+      <li>Rename a Block - Click on the block text and edit the content</li>
+      <li>Resize a Block - Click and drag the bottom of a block</li>
+      <li>Move a Block - Click and drag the block</li>
+    </ul>
+    <br />
+    <p>To configure the schedule, use the relevant query params</p>
+    <ul>
+      <li>"startTime" for the start hour for the schedule in 24 hour format, defaults to 7 (7am)</li>
+      <li>"endTime" for the end hour for the schedule in 24 hour format, defaults to 19 (7pm)</li>
+    </ul>
+    <br />
+    <p>This is a micro-project, check the source to see the code and do what you want with it!</p>
+    <br />
+    <p>Did you find this helpful? Buy me a coffee - <a href="https://ko-fi.com/donovanjladuke">Ko-fi</a></p>
+    <br />
+    <p>Donovan LaDuke 2026 - <a href="https://opensource.org/license/mit">MIT License</a></p>
+  </footer>
+
+  <script> // Store ================================================================================
+    /**
+     * @template TState, TResult
+     * @typedef Selector
+     * @type {(state: TState) => TResult}
+     **/
+
+    /**
+     * @template TState, TParam, TResult
+     * @typedef SelectorP1
+     * @type {(state: TState, param: TParam) => TResult}
+     **/
+
+    /**
+     * @template TState, TAction
+     * @typedef Reducer
+     * @type {(state: TState, action: TAction) => TState>}
+     **/
+
+    /**
+     * @template TState
+     * @typedef Reducers
+     * @type {Object.<string, Reducer<TState, Action<any>>}
+     **/
+
+    /**
+     * @template Type, TPayload
+     * @typedef {Object} Action
+     * @property {Type} type - The name of the action
+     * @property {TPayload} payload - The payload associated with the action
+     **/
+
+    /**
+     * @template TAction
+     * @typedef ActionCreator
+     * @type {(...args: unknown[]) => TAction}
+     **/
+
+    /**
+     * @template TState
+     * @callback Subscriber
+     * @param {TState} state
+     * @param {TState} prevState
+     * @returns {void}
+     */
+
+    /**
+     * @template TState
+     * @callback Middleware
+     * @param {Action<string, any>} action
+     * @param {TState} state
+     * @param {(action: Action<string, any>) => void} dispatch
+     * @returns {TState}
+     */
+
+    /**
+     * @template TState
+     * @typedef Store
+     * @property {(action: Action<string, any>) => void} dispatch
+     * @property {() => TState} getState
+     **/
+
+    /**
+     * @template TState
+     * Create a Redux Store
+     * @param {TState} initialState
+     * @param {Reducers<TState>} reducer
+     * @param {Array<Subscriber<TState>>} subscribers
+     * @param {Array<Middleware<TState>>} middleware
+     * @returns {Store<TState>}
+     **/
+    const createStore = (initialState, reducer = {}, subscribers = [], middleware = []) => {
+      let state = initialState
+
+      const getState = () => state
+
+      const dispatch = (action) => {
+        action = middleware.reduce((act, mw) => mw(act, state, dispatch), action)
+
+        let prevState = state;
+
+        if (!action) return
+
+        state = reducer[action.type]?.(state, action) ?? state
+
+        subscribers.forEach(sub => sub(state, prevState))
+      }
+
+      // Run for Initial State
+      subscribers.forEach(sub => sub(initialState, initialState))
+
+      return {
+        dispatch,
+        getState,
+      }
+    }
+
+
+    /** @type {Middleware<any>} */
+    const loggingMiddleware = (action, state, dispatch) => {
+      if (action === null) return action
+
+      console.group("---- ACTION ----")
+      console.log(action)
+      console.groupEnd()
+      return action
+    }
+
+    /** @type {Subscriber<any>} */
+    const loggingSubscriber = (state, prevState) => {
+      console.group("---- STATE ----")
+      console.log("---- PREV STATE ----")
+      console.log(prevState)
+      console.log("---- STATE ----")
+      console.log(state)
+      console.groupEnd()
+    }
+  </script>
+
+  <script> // Util ================================================================================
+    /**
+     * Read a query parameter, returning orDefault if not found
+     * @template T
+     * @param {string} key
+     * @param {T} orDefault
+     * @returns {T}
+     **/
+    const readQueryParam = (key, orDefault) => {
+      const param = (new URLSearchParams(window.location.search)).get(key) ?? orDefault
+      return parseInt(param, 10)
+    }
+
+    const HALF_HOUR_MINUTES = 30
+    const HOUR_MINUTES = 60
+  </script>
+
+  <script> // Timeblock Planner ================================================================================
+    /**
+     * @typedef Block
+     * @property {number} id
+     * @property {number} start
+     * @property {number} end
+     * @property {string} title
+     **/
+
+
+    // Selectors
+
+    /** 
+     * Select the current time in minutes since midnight
+     * @type Selector<TimeblockPlannerState, number> 
+     **/
+    const selectCurrentTime = (state) => state.currentTime
+
+    /** 
+     * Select the first hour in minutes of the schedule
+     * @type Selector<TimeblockPlannerState, number> 
+     **/
+    const selectStartHour = (state) => state.startHour
+
+    /** 
+     * Select the end hour in minutes of the schedule
+     * @type Selector<TimeblockPlannerState, number> 
+     **/
+    const selectEndHour = (state) => state.endHour
+
+    /** 
+     * Select the first hour in hours of the schedule
+     * @type Selector<TimeblockPlannerState, number> 
+     **/
+    const selectStartHourTime = (state) => state.startHour / HOUR_MINUTES
+
+    /** 
+     * Select the end hour in minutes of the schedule
+     * @type Selector<TimeblockPlannerState, number> 
+     **/
+    const selectEndHourTime = (state) => state.endHour / HOUR_MINUTES
+
+    /** 
+     * Select the height of each cell in the schedule
+     * @type Selector<TimeblockPlannerState, number> 
+     **/
+    const selectCellHeight = (state) => state.cellHeight
+
+    /** 
+     * Select the smallest length a block can be
+     * @type Selector<TimeblockPlannerState, number> 
+     **/
+    const selectMinBlockTime = (state) => state.minLength
+
+    /** 
+     * Select the next block ID for use
+     * @type Selector<TimeblockPlannerState, number> 
+     **/
+    const selectNextId = (state) => state.nextId
+
+    /** 
+     * Select all the blocks
+     * @type Selector<TimeblockPlannerState, Block[]> 
+     **/
+    const selectBlocks = (state) => Object.values(state.blocks)
+
+    /** 
+     * Select the block with the given ID
+     * @type SelectorP1<TimeblockPlannerState, number, Block> 
+     **/
+    const selectBlock = (state, id) => state.blocks[id]
+
+    /** 
+     * Select the current editing block type
+     * @type Selector<TimeblockPlannerState, EditBlockType> 
+     **/
+    const selectBlockEditingType = (state) => state.editingBlock.type
+
+    /** 
+     * Select the current block being edited
+     * @type Selector<TimeblockPlannerState, ?Block> 
+     **/
+    const selectEditingBlock = (state) => {
+      const editingType = selectBlockEditingType(state)
+
+      if (editingType === EditBlockType.NONE) return undefined
+
+      return selectBlock(state, state.editingBlock.id)
+    }
+
+    /** 
+     * Select the current block being edited
+     * @type Selector<TimeblockPlannerState, EditingBlock> 
+     **/
+    const selectEditingBlockState = (state) => state.editingBlock
+
+    /** 
+     * Select the Start time of the current cell at coordinates
+     * @type SelectorP1<TimeblockPlannerState, Coordinates, number> 
+     **/
+    const selectCurrentCell = (state, {y}) => {
+      const height = selectCellHeight(state)
+      const startHour = selectStartHour(state)
+      const minLength = selectMinBlockTime(state)
+
+      return Math.floor(y / height) * minLength + startHour
+    }
+
+    /** 
+     * Select if the provided block overlaps other blocks
+     * @type SelectorP1<TimeblockPlannerState, Block, number> 
+     **/
+    const selectHasOverlap = (state, search) => {
+      const blocks = selectBlocks(state)
+
+      return blocks
+        .some(block => block.id !== search.id && search.end > block.start && search.start < block.end)
+    }
+
+    // Reducers
+
+    /** @type Reducer<TimeblockPlannerState, UpdateCurrenTimeAction> */
+    const handleUpdateCurrentTime = (state, {payload: {currentTime}}) => {
+      return {
+        ...state,
+        currentTime,
+      }
+    }
+
+    /** @type Reducer<TimeblockPlannerState, AddBlockAction> */
+    const handleAddBlockStart = (state, {payload: {coordinates}}) => {
+      const id = selectNextId(state)
+      const minLength = selectMinBlockTime(state)
+
+      const cellStart = selectCurrentCell(state, coordinates)
+
+      const newBlock = {
+        id,
+        start: cellStart,
+        end: cellStart + minLength,
+        title: ''
+      }
+
+      if (selectHasOverlap(state, newBlock)) {
+        return state
+      }
+
+      return {
+        ...state,
+        nextId: id + 1,
+        editingBlock: editBlockAddResize(id),
+        blocks: {
+          ...state.blocks,
+          [id]: newBlock,
+        }
+      }
+    }
+
+    /** @type Reducer<TimeblockPlannerState, RemoveBlockAction> */
+    const handleRemoveBlock = (state, {payload: {id}}) => {
+      const {[id]: _, ...blocks} = state.blocks
+
+      return {
+        ...state,
+        blocks
+      }
+    }
+
+    /** @type Reducer<TimeblockPlannerState, StartMoveAction> */
+    const handleStartMove = (state, {payload: {id, coordinates}}) => {
+      const blockStart = selectBlock(state, id).start
+
+      const start = (blockStart - state.startHour) / state.minLength * state.cellHeight
+      const offset = start - coordinates.y
+
+      return {
+        ...state,
+        editingBlock: editBlockMove(id, offset),
+      }
+    }
+
+    /** @type Reducer<TimeblockPlannerState, StartResizeAction> */
+    const handleStartResizing = (state, {payload: {id}}) => {
+      return {
+        ...state,
+        editingBlock: editBlockResize(id),
+      }
+    }
+
+    /** @type Reducer<TimeblockPlannerState, EditAction> */
+    const handleEdit = (state, {payload: {coordinates}}) => {
+      const editingType = selectBlockEditingType(state)
+
+      if (editingType === EditBlockType.NONE) return state
+
+      const editingBlock = selectEditingBlock(state)
+
+      let newBlock = {...editingBlock}
+
+      if (editingType === EditBlockType.MOVE) {
+        const newStart = selectCurrentCell(state, {y: coordinates.y + state.editingBlock.offset})
+        const newEnd = newStart + (editingBlock.end - editingBlock.start)
+
+        newBlock = {
+          ...newBlock,
+          start: newStart,
+          end: newEnd
+        }
+      }
+
+      if (editingType === EditBlockType.RESIZE) {
+        newBlock = {
+          ...newBlock,
+          end: selectCurrentCell(state, coordinates) + state.minLength,
+        }
+      }
+
+      if (selectHasOverlap(state, newBlock)) {
+        return state
+      }
+
+      const minLength = selectMinBlockTime(state)
+      if (newBlock.end - newBlock.start < minLength) {
+        return state
+      }
+
+      const startHour = selectStartHour(state)
+      if (newBlock.start < startHour) {
+        return state
+      }
+
+      const endHour = selectEndHour(state)
+      if (newBlock.end > endHour) {
+        return state
+      }
+
+      return {
+        ...state,
+        blocks: {
+          ...state.blocks,
+          [editingBlock.id]: newBlock,
+        }
+      }
+    }
+
+    /** @type Reducer<TimeblockPlannerState, EndEditAction> */
+    const handleEndEdit = (state, action) => {
+      return {
+        ...state,
+        editingBlock: editBlockNone(),
+      }
+    }
+
+    /** @type Reducer<TimeblockPlannerState, UpdateTitleAction> */
+    const handleUpdateTitle = (state, {payload: {id, title}}) => {
+      const block = selectBlock(state, id)
+
+      return {
+        ...state,
+        blocks: {
+          ...state.blocks,
+          [block.id]: {
+            ...block,
+            title: title
+          },
+        }
+      }
+    }
+
+    // Actions
+    const TIMEBLOCK_ACTION = {
+      UPDATE_CURRENT_TIME: 'updateCurrentTime',
+      ADD_BLOCK: 'addBlock',
+      REMOVE_BLOCK: 'removeBlock',
+      START_MOVE: 'startMove',
+      START_RESIZE: 'startResize',
+      EDIT: 'edit',
+      END_EDIT: 'endEdit',
+      UPDATE_TITLE: 'updateTitle'
+    }
+
+    /** @typedef {Action<"updateCurrentTime", {currentTime: number}>} UpdateCurrenTimeAction */
+    /** Action Creator
+     * @param {number} currentTime 
+     * @returns {UpdateCurrenTimeAction}
+     **/
+    const updateCurrentTimeAction = (currentTime) => ({type: TIMEBLOCK_ACTION.UPDATE_CURRENT_TIME, payload: {currentTime}})
+
+    /** @typedef {Action<"addBlock", {coordinates: Coordinates}>} AddBlockAction */
+    /** Action Creator
+     * @param {Coordinates} coordinates 
+     * @returns {AddBlockAction}
+     **/
+    const addBlockAction = (coordinates) => ({type: TIMEBLOCK_ACTION.ADD_BLOCK, payload: {coordinates}})
+    /** @typedef {Action<"removeBlock", {id: number}>} RemoveBlockAction */
+    /** Action Creator
+     * @param {number} id 
+     * @returns {RemoveBlockAction}
+     **/
+    const removeBlockAction = (id) => ({type: TIMEBLOCK_ACTION.REMOVE_BLOCK, payload: {id}})
+
+    /** @typedef {Action<"startMove", {id: number, coordinates: Coordinates}>} StartMoveAction */
+    /** Action Creator
+     * @param {number} id 
+     * @param {Coordinates} coordinates 
+     * @returns {StartMoveAction}
+     **/
+    const startMoveAction = (id, coordinates) => ({type: TIMEBLOCK_ACTION.START_MOVE, payload: {id, coordinates}})
+    /** @typedef {Action<"startResize", {id: number}>} StartResizeAction */
+    /** Action Creator
+     * @param {number} id 
+     * @returns {StartResizeAction}
+     **/
+    const startResizeAction = (id) => ({type: TIMEBLOCK_ACTION.START_RESIZE, payload: {id}})
+    /** @typedef {Action<"edit", {coordinates: Coordinates}>} EditAction */
+    /** Action Creator
+     * @param {Coordinates} coordinates
+     * @returns {EditAction}
+     **/
+    const editAction = (coordinates) => ({type: TIMEBLOCK_ACTION.EDIT, payload: {coordinates}})
+    /** @typedef {Action<"endEdit", *>} EndEditAction */
+    // /** @type ActionCreator<EndEditAction> */
+    const endEditAction = () => ({type: TIMEBLOCK_ACTION.END_EDIT})
+
+    /** @typedef {Action<"updateTitle", {id: number, title: string}>} UpdateTitleAction */
+    /** Action Creator
+     * @param {number} id
+     * @param {string} title
+     * @returns {UpdateTitleAction}
+     **/
+    const updateTitleAction = (id, title) => ({type: TIMEBLOCK_ACTION.UPDATE_TITLE, payload: {id, title}})
+
+    // Middleware
+    /** @type {Middleware<TimeblockPlannerState>} */
+    const mousemoveFilterMiddleware = (action, state, dispatch) => {
+      if (action.type === TIMEBLOCK_ACTION.EDIT && state.editingBlock.type === 'NONE') {
+        return null
+      }
+
+      return action
+    }
+
+  </script>
+
+  <script> // View =======================================================================
+    const updateInnerHtmlIfChanged = (element, newContent) => {
+      if (element.innerHTML === newContent) return
+
+      element.innerHTML = newContent
+    }
+
+    const createHourMarker = (offset) => {
+      const hourMarker = document.createElement("div");
+      hourMarker.classList.add("hour-marker")
+      hourMarker.style.top = `${offset}px`
+      return hourMarker
+    }
+
+    const createHourIndicator = (offset, hour) => {
+      const hourMarkerIndicator = document.createElement("span");
+      hourMarkerIndicator.classList.add("hour-marker-indicator")
+      hourMarkerIndicator.textContent = `${hour}`
+      hourMarkerIndicator.style.top = `${offset - 6}px`
+      return hourMarkerIndicator
+    }
+
+    const createHalfHourMarker = (offset) => {
+      const halfHourMarker = document.createElement("div")
+      halfHourMarker.classList.add("half-hour-marker")
+      halfHourMarker.style.top = `${offset}px`
+      return halfHourMarker
+    }
+
+    const getTimelineCoordinates = (e) => {
+      const rect = document.getElementById("timeline").getBoundingClientRect();
+      return {x: e.clientX - rect.left, y: e.clientY - rect.top}
+    }
+    const drawSchedule = (state) => {
+      const timeline = document.getElementById("timeline")
+
+      timeline.onmousemove = (e) => {
+        const coordinates = getTimelineCoordinates(e)
+
+        store.dispatch(editAction(coordinates))
+      }
+
+      timeline.onmousedown = (e) => {
+        const coordinates = getTimelineCoordinates(e)
+        store.dispatch(addBlockAction(coordinates))
+      }
+
+      document.onmouseup = (e) => {
+        store.dispatch(endEditAction())
+      }
+
+      const startHour = selectStartHourTime(state)
+      const endHour = selectEndHourTime(state)
+      const cellHeight = selectCellHeight(state)
+      const hourHeight = cellHeight * 2
+
+      if (startHour > endHour) {
+        console.error("endHour must be greater than startHour")
+        return
+      }
+
+      const hours = endHour - startHour
+
+      const height = hours * hourHeight
+      timeline.style.height = `${height}px`
+
+      for (let i = hours; i >= 0; --i) {
+        const offset = (cellHeight * 2 * i)
+        const hour = startHour + i
+
+        if (i !== hours) {
+          timeline.prepend(createHalfHourMarker(offset + state.cellHeight))
+        }
+
+        timeline.prepend(createHourMarker(offset))
+        timeline.prepend(createHourIndicator(offset, hour))
+      }
+    }
+
+    /** @type {Subscriber<TimeblockPlannerState>} */
+    const drawCurrentTime = (state) => {
+      const currentTime = selectCurrentTime(state)
+      const startHour = selectStartHour(state)
+      const endHour = selectEndHour(state)
+
+      const currentTimeIndicator = document.getElementById("current-time")
+
+      if (currentTime > endHour || currentTime < startHour) {
+        currentTimeIndicator.style.visibility = "hidden"
+        return
+      }
+
+      const cellHeight = selectCellHeight(state)
+
+      currentTimeIndicator.style.visibility = "visible"
+      const currentTimeOffset = `${(currentTime - startHour) / 30 * cellHeight}px`
+      if (currentTimeOffset !== currentTimeIndicator.style.top) {
+        currentTimeIndicator.style.top = currentTimeOffset
+      }
+    }
+
+    /** @type {Subscriber<TimeblockPlannerState>} */
+    const drawBlocks = (state, prevState) => {
+      const blocksContainer = document.getElementById("blocks")
+
+      const ids = [...new Set([...Object.keys(state.blocks), ...Object.keys(prevState.blocks)])]
+
+      for (let blockId of ids) {
+        const prevBlock = selectBlock(prevState, blockId)
+        const block = selectBlock(state, blockId)
+
+        if (!block && prevBlock) {
+          document.getElementById(`block-${blockId}`).remove()
+          continue
+        }
+
+        if (!prevBlock && block) {
+          const newBlock = document.createElement("div");
+          newBlock.classList.add("time-block")
+          newBlock.id = `block-${blockId}`
+
+          const newTitle = document.createElement("span")
+          newTitle.id = `title-${block.id}`
+          newTitle.contentEditable = true
+          newTitle.onblur = (e) => {
+            store.dispatch(updateTitleAction(block.id, e.target.textContent))
+          }
+          newTitle.classList.add("block-title")
+
+          newBlock.appendChild(newTitle)
+
+          const closeButton = document.createElement("button");
+          closeButton.classList.add("close-button")
+          closeButton.addEventListener("click", (e) => {
+            e.preventDefault()
+            store.dispatch(removeBlockAction(block.id))
+          })
+          closeButton.textContent = "✖ "
+          newBlock.appendChild(closeButton);
+
+          const dragHandleContainer = document.createElement("div")
+          dragHandleContainer.classList.add("drag-handle-container")
+          dragHandleContainer.onmousedown = (e) => {
+            e.stopPropagation()
+            const blockTitle = document.getElementById(`title-${block.id}`)
+            store.dispatch(updateTitleAction(block.id, blockTitle.textContent))
+
+            store.dispatch(startResizeAction(block.id))
+          }
+
+          const dragHandle = document.createElement("div");
+          dragHandle.classList.add("drag-handle")
+
+          dragHandleContainer.appendChild(dragHandle);
+          newBlock.appendChild(dragHandleContainer);
+
+          newBlock.onmousedown = (e) => {
+            const blockTitle = document.getElementById(`title-${block.id}`)
+            store.dispatch(updateTitleAction(block.id, blockTitle.textContent))
+
+            const coordinates = getTimelineCoordinates(e)
+            // const coordinates = {x: e.pageX, y: e.pageY}
+            store.dispatch(startMoveAction(block.id, coordinates))
+          }
+
+          blocksContainer.appendChild(newBlock);
+        }
+
+        const blockElem = document.getElementById(`block-${block.id}`)
+
+        if (state.editingBlock.type === 'MOVE' && state.editingBlock.id === block.id) {
+          blockElem.classList.remove("time-block-resizing")
+          blockElem.classList.add("time-block-dragging")
+        } else if (state.editingBlock.type === 'RESIZE' && state.editingBlock.id === block.id) {
+          blockElem.classList.remove("time-block-dragging")
+          blockElem.classList.add("time-block-resizing")
+        } else {
+          blockElem.classList.remove("time-block-dragging")
+          blockElem.classList.remove("time-block-resizing")
+        }
+
+        const start = (block.start - state.startHour) / 30 * state.cellHeight
+        const end = ((block.end - state.startHour) / 30 * state.cellHeight) - start
+        blockElem.style.top = `${start + 3}px`
+        blockElem.style.height = `${end - 5}px`
+
+        const blockTitle = document.getElementById(`title-${block.id}`)
+        blockTitle.textContent = block.title
+      }
+    }
+
+    /** @type {Subscriber<TimeblockPlannerState>} */
+    const uiUpdate = (state, prevState) => {
+      drawCurrentTime(state)
+      drawBlocks(state, prevState)
+    }
+
+    /** @type {Subscriber<TimeblockPlannerState>} */
+    const focusOnAddComplete = (state, prevState) => {
+      const editingBlock = selectEditingBlockState(state)
+      const prevEditingBlock = selectEditingBlockState(prevState)
+
+      if (editingBlock.type === EditBlockType.NONE && prevEditingBlock.type === EditBlockType.RESIZE && prevEditingBlock.isAdd) {
+        const title = document.getElementById(`title-${prevEditingBlock.id}`)
+        title.focus()
+
+        const range = document.createRange()
+        range.selectNodeContents(title)
+        const selection = window.getSelection()
+        selection.removeAllRanges()
+        selection.addRange(range)
+      }
+    }
+  </script>
+
+  <script> // Main ================================================================================
+    /**
+     * @typedef Coordinates
+     * @type {object}
+     * @property {number} x
+     * @property {number} y
+     */
+
+    /**
+     * @typedef EditingBlockNone
+     * @type {object}
+     * @property {'NONE'} type
+     */
+
+    /**
+     * @typedef EditingBlockResize
+     * @type {object}
+     * @property {'RESIZE'} type
+     * @property {number} id
+     * @property {boolean} isAdd
+     */
+
+    /**
+     * @typedef EditingBlockMove
+     * @type {object}
+     * @property {'MOVE'} type
+     * @property {number} id
+     * @property {number} blockStart
+     * @property {coordinates} dragStart
+     */
+
+    /**
+     * @typedef EditingBlock
+     * @type {EditingBlockNone|EditingBlockResize|EditingBlockMove}
+     */
+
+    /**
+     * @typedef TimeblockPlannerState
+     * @type {object}
+     * @property {number} startHour - The Start Time of the planner in minutes since midnight
+     * @property {number} endHour - The End Time of the planner in minutes since midnight
+     * @property {number} cellHeight - The Height of each cell in pixels
+     * @property {number} minLength - The minimum length of a block in minutes
+     * @property {number} nextId - The next Id to generate for block creation
+     * @property {number} currentTime - The current time in minutes since midnight
+     * @property {EditingBlock} editingBlock
+     * @property {Block[]} blocks
+     */
+
+
+    /**
+     * @typedef {'NONE'|'RESIZE'|'MOVE'} EditBlockType
+     **/
+
+    /**
+     * Edit Block Types
+     * @readonly
+     * @enum {EditBlockType}
+     */
+    const EditBlockType = {
+      NONE: 'NONE',
+      RESIZE: 'RESIZE',
+      MOVE: 'MOVE'
+    }
+
+    /**
+     * @returns {EditingBlockNone}
+     **/
+    const editBlockNone = () => ({type: EditBlockType.NONE})
+
+    /**
+     * @param {number} blockId
+     * @returns {EditingBlockResize}
+     **/
+    const editBlockResize = (blockId) => ({type: EditBlockType.RESIZE, id: blockId, isAdd: false})
+    /**
+     * @param {number} blockId
+     * @returns {EditingBlockResize}
+     **/
+    const editBlockAddResize = (blockId) => ({type: EditBlockType.RESIZE, id: blockId, isAdd: true})
+
+    /**
+     * @param {number} blockId
+     * @param {number} blockStart
+     * @param {Coordinates} dragStart
+     * @returns {EditingBlockMove}
+     **/
+    const editBlockMove = (blockId, offset) => ({type: EditBlockType.MOVE, id: blockId, offset})
+
+    const getCurrentTime = () => {
+      const now = Temporal.Now.plainTimeISO()
+      return (now.hour * 60) + now.minute
+    }
+
+    const intervalOneMinuteInMS = 60_000
+    const currentTimeInidicatorTimer = setInterval(() => {
+      store.dispatch(updateCurrentTimeAction(getCurrentTime()))
+    }, intervalOneMinuteInMS)
+
+    /** @type{TimeblockPlannerState} */
+    const initialState = {
+      startHour: readQueryParam("startHour", 7) * 60,
+      endHour: readQueryParam("endHour", 19) * 60,
+      cellHeight: 40,
+      minLength: 30,
+
+      nextId: 1,
+
+      currentTime: getCurrentTime(),
+
+      editingBlock: editBlockNone(),
+
+      blocks: {}
+    }
+
+    /** @type Reducers<TimeblockPlannerState> */
+    const reducer = {
+      updateCurrentTime: handleUpdateCurrentTime,
+      addBlock: handleAddBlockStart,
+      removeBlock: handleRemoveBlock,
+      updateTitle: handleUpdateTitle,
+      startMove: handleStartMove,
+      startResize: handleStartResizing,
+      edit: handleEdit,
+      endEdit: handleEndEdit,
+    }
+
+    /** @type Array<Subscriber<TimeblockPlannerState>> */
+    const subscribers = [uiUpdate, focusOnAddComplete]
+    /** @type Array<Middleware<TimeblockPlannerState>> */
+    const middleware = [mousemoveFilterMiddleware]
+
+    /** @type Store<TimeblockPlannerState> */
+    drawSchedule(initialState)
+    const store = createStore(initialState, reducer, subscribers, middleware)
+  </script>
+
+  <script> // Accent Color ===============================================================
+    const setAccentColor = () => {
+      const accentParam = (new URLSearchParams(window.location.search)).get('accent')
+
+      let accentColorDark = '#284E13'
+      let accentColorLight = '#93C47D'
+
+      let errorColorDark = '#660000'
+      let errorColorLight = '#EA9999'
+
+      switch (accentParam) {
+        case 'red':
+          accentColorDark = '#660000'
+          accentColorLight = '#EA9999'
+
+          errorColorDark = '#B45F06'
+          errorColorLight = '#F9CB9C'
+          break
+        case 'blue':
+          accentColorDark = '#073763'
+          accentColorLight = '#A4C2F4'
+          break
+        case 'yellow':
+          accentColorDark = '#BF9000'
+          accentColorLight = '#FFE599'
+          break
+        case 'orange':
+          accentColorDark = '#B45F06'
+          accentColorLight = '#F9CB9C'
+          break
+        case 'purple':
+          accentColorDark = '#351C75'
+          accentColorLight = '#B4A7D6'
+          break
+        case 'pink':
+          accentColorDark = '#A64D79'
+          accentColorLight = '#D5A6BD'
+          break
+        case 'grey':
+          accentColorDark = '#666666'
+          accentColorLight = '#F3F3F3'
+          break
+        case 'green':
+        default:
+          break
+      }
+
+      document.documentElement.style.setProperty('--color-pop-container', `light-dark(${accentColorLight}, ${accentColorDark})`);
+      document.documentElement.style.setProperty('--color-pop', `light-dark(${accentColorDark}, ${accentColorLight})`);
+      document.documentElement.style.setProperty('--color-error', `light-dark(${errorColorLight}, ${errorColorDark})`);
+    }
+    setAccentColor()
+  </script>
+
+  <script>
+    const hideInfo = (new URLSearchParams(window.location.search)).get('hideInfo') === 'true'
+
+    if (hideInfo) {
+      document.querySelector('footer').style = 'display: none'
+    }
+  </script>
+
+  <script>
+    const deepEquals = (obj1, obj2) => {
+      if (obj1 === obj2) return true
+
+      if (typeof obj1 !== 'object' || obj1 === null ||
+        typeof obj2 !== 'object' || obj2 === null) {
+        return false
+      }
+
+      const keys1 = Object.keys(obj1)
+      const keys2 = Object.keys(obj2)
+
+      if (keys1.length !== keys2.length) return false
+
+      for (const key of keys1) {
+        if (!keys2.includes(key) || !deepEquals(obj1[key], obj2[key])) {
+          return false
+        }
+      }
+      return true
+    }
+
+    const assert = (func, expected, actual) => {
+      if (deepEquals(actual, expected)) {
+        console.log(`${func}: Success!!`)
+      } else {
+        console.error(`${func}: ${actual} !== ${expected}`)
+        console.log("expected")
+        console.log(expected)
+        console.log("actual")
+        console.log(actual)
+      }
+    }
+
+    // Tests
+    const runTests = () => {
+      const baseTestState = {
+        startHour: 420,
+        endHour: 1140,
+        cellHeight: 40,
+        minLength: 30,
+
+        nextId: 1,
+
+        currentTime: 600,
+
+        editingBlock: editBlockNone(),
+
+        blocks: {}
+      }
+
+      // Selector Tests
+      const selectCurrentTime_returnsCurrentTime = () => {
+        // Given
+        const testState = baseTestState;
+        const expected = 600;
+
+        // When
+        const actual = selectCurrentTime(testState);
+
+        // Then
+        assert(selectCurrentTime_returnsCurrentTime.name, expected, actual)
+      }
+
+      const selectStartHour_returnsStartHour = () => {
+        // Given
+        const testState = baseTestState;
+        const expected = 420;
+
+        // When
+        const actual = selectStartHour(testState);
+
+        // Then
+        assert(selectStartHour_returnsStartHour.name, expected, actual)
+      }
+
+      const selectEndHour_returnsEndHour = () => {
+        // Given
+        const testState = baseTestState;
+        const expected = 1140;
+
+        // When
+        const actual = selectEndHour(testState);
+
+        // Then
+        assert(selectEndHour_returnsEndHour.name, expected, actual)
+      }
+
+      const selectStartHourTime_returnsStartHour = () => {
+        // Given
+        const testState = baseTestState;
+        const expected = 7;
+
+        // When
+        const actual = selectStartHourTime(testState);
+
+        // Then
+        assert(selectStartHourTime_returnsStartHour.name, expected, actual)
+      }
+
+      const selectEndHourTime_returnsEndHour = () => {
+        // Given
+        const testState = baseTestState;
+        const expected = 19;
+
+        // When
+        const actual = selectEndHourTime(testState);
+
+        // Then
+        assert(selectEndHourTime_returnsEndHour.name, expected, actual)
+      }
+
+      const selectCellHeight_returnsCellHeight = () => {
+        // Given
+        const testState = baseTestState;
+        const expected = 40;
+
+        // When
+        const actual = selectCellHeight(testState);
+
+        // Then
+        assert(selectCellHeight_returnsCellHeight.name, expected, actual)
+      }
+
+      const selectMinBlockTime_returnsMinBlockTime = () => {
+        // Given
+        const testState = baseTestState;
+        const expected = 30;
+
+        // When
+        const actual = selectMinBlockTime(testState);
+
+        // Then
+        assert(selectMinBlockTime_returnsMinBlockTime.name, expected, actual)
+      }
+
+      const selectNextId_returnsTheNextId = () => {
+        // Given
+        const testState = baseTestState;
+        const expected = 1;
+
+        // When
+        const actual = selectNextId(testState);
+
+        // Then
+        assert(selectNextId_returnsTheNextId.name, expected, actual)
+      }
+
+      const selectNextId_returnsTheNextIdWithoutIncrementing = () => {
+        // Given
+        const testState = baseTestState;
+        const expected = 1;
+
+        // When
+        const initial = selectNextId(testState);
+        const actual = selectNextId(testState);
+
+        // Then
+        assert(selectNextId_returnsTheNextIdWithoutIncrementing.name, expected, actual)
+      }
+
+      const selectBlocks_returnsEmptyWhenEmpty = () => {
+        // Given
+        const testState = {...baseTestState, blocks: {}}
+        const expected = []
+
+        // When
+        const actual = selectBlocks(testState)
+
+        // Then
+        assert(selectBlocks_returnsEmptyWhenEmpty.name, expected, actual)
+      }
+
+      const selectBlocks_returnsBlocksWhenNotEmpty = () => {
+        // Given
+        const testState = {
+          ...baseTestState,
+          blocks: {
+            1: {id: 1, start: 600, end: 630, title: "Block 1"},
+            2: {id: 2, start: 660, end: 720, title: "Block 2"},
+          }
+        }
+        const expected = [
+          {id: 1, start: 600, end: 630, title: "Block 1"},
+          {id: 2, start: 660, end: 720, title: "Block 2"},
+        ]
+
+        // When
+        const actual = selectBlocks(testState)
+
+        // Then
+        assert(selectBlocks_returnsBlocksWhenNotEmpty.name, expected, actual)
+      }
+
+      const selectBlock_returnsUndefinedWhenEmpty = () => {
+        // Given
+        const testState = {...baseTestState, blocks: {}}
+        const expected = undefined
+
+        // When
+        const actual = selectBlock(testState, 1)
+
+        // Then
+        assert(selectBlock_returnsUndefinedWhenEmpty.name, expected, actual)
+      }
+
+      const selectBlock_returnsUndefinedWhenNotInBlocks = () => {
+        // Given
+        const testState = {
+          ...baseTestState,
+          blocks: {
+            1: {id: 1, start: 600, end: 630, title: "Block 1"},
+            2: {id: 2, start: 660, end: 720, title: "Block 2"},
+          }
+        }
+        const expected = undefined
+
+        // When
+        const actual = selectBlock(testState, 3)
+
+        // Then
+        assert(selectBlock_returnsUndefinedWhenNotInBlocks.name, expected, actual)
+      }
+
+      const selectBlock_returnsBlock = () => {
+        // Given
+        const testState = {
+          ...baseTestState,
+          blocks: {
+            1: {id: 1, start: 600, end: 630, title: "Block 1"},
+            2: {id: 2, start: 660, end: 720, title: "Block 2"},
+          }
+        }
+        const expected = {id: 2, start: 660, end: 720, title: "Block 2"}
+
+
+        // When
+        const actual = selectBlock(testState, 2)
+
+        // Then
+        assert(selectBlock_returnsBlock.name, expected, actual)
+      }
+
+      const selectBlockEditingType_returnsNoneWhenNone = () => {
+        // Given
+        const testState = {
+          ...baseTestState,
+          editingBlock: editBlockNone()
+        }
+        const expected = EditBlockType.NONE
+
+
+        // When
+        const actual = selectBlockEditingType(testState)
+
+        // Then
+        assert(selectBlockEditingType_returnsNoneWhenNone.name, expected, actual)
+      }
+
+      const selectBlockEditingType_returnsMoveWhenMove = () => {
+        // Given
+        const testState = {
+          ...baseTestState,
+          editingBlock: editBlockMove(1, 100)
+        }
+        const expected = EditBlockType.MOVE
+
+        // When
+        const actual = selectBlockEditingType(testState)
+
+        // Then
+        assert(selectBlockEditingType_returnsNoneWhenNone.name, expected, actual)
+      }
+
+      const selectBlockEditingType_returnsResizeWhenResize = () => {
+        // Given
+        const testState = {
+          ...baseTestState,
+          editingBlock: editBlockResize(1)
+        }
+        const expected = EditBlockType.RESIZE
+
+        // When
+        const actual = selectBlockEditingType(testState)
+
+        // Then
+        assert(selectBlockEditingType_returnsResizeWhenResize.name, expected, actual)
+      }
+
+
+      const selectEditingBlock_returnsUndefinedWhenNone = () => {
+        // Given
+        const testState = {
+          ...baseTestState,
+          editingBlock: editBlockNone(),
+          blocks: {
+            1: {id: 1, start: 600, end: 630, title: "Block 1"},
+            2: {id: 2, start: 660, end: 720, title: "Block 2"},
+          }
+        }
+        const expected = undefined
+
+
+        // When
+        const actual = selectEditingBlock(testState)
+
+        // Then
+        assert(selectEditingBlock_returnsUndefinedWhenNone.name, expected, actual)
+      }
+
+      const selectEditingBlock_returnsBlockWhenNotNone = () => {
+        // Given
+        const testState = {
+          ...baseTestState,
+          editingBlock: editBlockResize(2),
+          blocks: {
+            1: {id: 1, start: 600, end: 630, title: "Block 1"},
+            2: {id: 2, start: 660, end: 720, title: "Block 2"},
+          }
+        }
+        const expected = {id: 2, start: 660, end: 720, title: "Block 2"}
+
+
+        // When
+        const actual = selectEditingBlock(testState)
+
+        // Then
+        assert(selectEditingBlock_returnsBlockWhenNotNone.name, expected, actual)
+      }
+
+      const selectBlockEditingState_returnsNoneWhenNone = () => {
+        // Given
+        const testState = {
+          ...baseTestState,
+          editingBlock: editBlockNone()
+        }
+        const expected = {type: EditBlockType.NONE}
+
+
+        // When
+        const actual = selectEditingBlockState(testState)
+
+        // Then
+        assert(selectBlockEditingState_returnsNoneWhenNone.name, expected, actual)
+      }
+
+      const selectBlockEditingState_returnsMoveWhenMove = () => {
+        // Given
+        const testState = {
+          ...baseTestState,
+          editingBlock: editBlockMove(1, 100)
+        }
+        const expected = {type: EditBlockType.MOVE, id: 1, offset: 100}
+
+        // When
+        const actual = selectEditingBlockState(testState)
+
+        // Then
+        assert(selectBlockEditingState_returnsMoveWhenMove.name, expected, actual)
+      }
+
+      const selectBlockEditingState_returnsResizeWhenResize = () => {
+        // Given
+        const testState = {
+          ...baseTestState,
+          editingBlock: editBlockResize(1)
+        }
+        const expected = {type: EditBlockType.RESIZE, id: 1, isAdd: false}
+
+        // When
+        const actual = selectEditingBlockState(testState)
+
+        // Then
+        assert(selectBlockEditingState_returnsResizeWhenResize.name, expected, actual)
+      }
+
+      const selectCurrentCell_returnsCellWhenAtTop = () => {
+        // Given
+        const testState = baseTestState
+        const expected = 600
+
+        // When
+        const actual = selectCurrentCell(testState, {y: 240, x: 100})
+
+        // Then
+        assert(selectCurrentCell_returnsCellWhenAtTop.name, expected, actual)
+      }
+
+      const selectCurrentCell_returnsCellWhenInMiddle = () => {
+        // Given
+        const testState = baseTestState
+        const expected = 600
+
+        // When
+        const actual = selectCurrentCell(testState, {y: 260, x: 100})
+
+        // Then
+        assert(selectCurrentCell_returnsCellWhenInMiddle.name, expected, actual)
+      }
+
+      const selectCurrentCell_returnsCellWhenAtBottom = () => {
+        // Given
+        const testState = baseTestState
+        const expected = 600
+
+        // When
+        const actual = selectCurrentCell(testState, {y: 279, x: 100})
+
+        // Then
+        assert(selectCurrentCell_returnsCellWhenAtBottom.name, expected, actual)
+      }
+
+      const selectHasOverlap_returnsFalseIfNoOtherBlocks = () => {
+        // Given
+        const testState = {
+          ...baseTestState,
+          blocks: {}
+        }
+        const newBlock = {id: 2, start: 660, end: 720, title: "Block 2"}
+        const expected = false
+
+
+        // When
+        const actual = selectHasOverlap(testState, newBlock)
+
+        // Then
+        assert(selectHasOverlap_returnsFalseIfNoOtherBlocks.name, expected, actual)
+      }
+
+      const selectHasOverlap_returnsFalseIfNoOverlap = () => {
+        // Given
+        const testState = {
+          ...baseTestState,
+          blocks: {
+            1: {id: 1, start: 600, end: 630, title: "Block 1"},
+          }
+        }
+        const newBlock = {id: 2, start: 660, end: 720, title: "Block 2"}
+        const expected = false
+
+
+        // When
+        const actual = selectHasOverlap(testState, newBlock)
+
+        // Then
+        assert(selectHasOverlap_returnsFalseIfNoOverlap.name, expected, actual)
+      }
+
+      const selectHasOverlap_returnsTrueIfInsertedOverlapsEnd = () => {
+        // Given
+        const testState = {
+          ...baseTestState,
+          blocks: {
+            1: {id: 1, start: 600, end: 660, title: "Block 1"},
+          }
+        }
+        const newBlock = {id: 2, start: 630, end: 720, title: "Block 2"}
+        const expected = true
+
+
+        // When
+        const actual = selectHasOverlap(testState, newBlock)
+
+        // Then
+        assert(selectHasOverlap_returnsTrueIfInsertedOverlapsEnd.name, expected, actual)
+      }
+
+      const selectHasOverlap_returnsTrueIfInsertedOverlapsStart = () => {
+        // Given
+        const testState = {
+          ...baseTestState,
+          blocks: {
+            1: {id: 1, start: 600, end: 660, title: "Block 1"},
+          }
+        }
+        const newBlock = {id: 2, start: 570, end: 630, title: "Block 2"}
+        const expected = true
+
+
+        // When
+        const actual = selectHasOverlap(testState, newBlock)
+
+        // Then
+        assert(selectHasOverlap_returnsFalseIfNoOtherBlocks.name, expected, actual)
+      }
+
+      const selectHasOverlap_returnsTrueIfInsertedOverlapsInside = () => {
+        // Given
+        const testState = {
+          ...baseTestState,
+          blocks: {
+            1: {id: 1, start: 600, end: 720, title: "Block 1"},
+          }
+        }
+        const newBlock = {id: 2, start: 660, end: 690, title: "Block 2"}
+        const expected = true
+
+
+        // When
+        const actual = selectHasOverlap(testState, newBlock)
+
+        // Then
+        assert(selectHasOverlap_returnsFalseIfNoOtherBlocks.name, expected, actual)
+      }
+
+      const selectHasOverlap_returnsTrueIfInsertedOverlapsAround = () => {
+        // Given
+        const testState = {
+          ...baseTestState,
+          blocks: {
+            1: {id: 1, start: 600, end: 630, title: "Block 1"},
+          }
+        }
+        const newBlock = {id: 2, start: 570, end: 660, title: "Block 2"}
+        const expected = true
+
+
+        // When
+        const actual = selectHasOverlap(testState, newBlock)
+
+        // Then
+        assert(selectHasOverlap_returnsFalseIfNoOtherBlocks.name, expected, actual)
+      }
+
+      selectCurrentTime_returnsCurrentTime()
+      selectStartHour_returnsStartHour()
+      selectEndHour_returnsEndHour()
+      selectStartHourTime_returnsStartHour()
+      selectEndHourTime_returnsEndHour()
+      selectCellHeight_returnsCellHeight()
+      selectMinBlockTime_returnsMinBlockTime()
+      selectNextId_returnsTheNextId()
+      selectNextId_returnsTheNextIdWithoutIncrementing()
+      selectBlocks_returnsEmptyWhenEmpty()
+      selectBlocks_returnsBlocksWhenNotEmpty()
+      selectBlock_returnsUndefinedWhenEmpty()
+      selectBlock_returnsUndefinedWhenNotInBlocks()
+      selectBlock_returnsBlock()
+      selectBlockEditingType_returnsNoneWhenNone()
+      selectBlockEditingType_returnsMoveWhenMove()
+      selectBlockEditingType_returnsResizeWhenResize()
+      selectEditingBlock_returnsUndefinedWhenNone()
+      selectEditingBlock_returnsBlockWhenNotNone()
+      selectBlockEditingState_returnsNoneWhenNone()
+      selectBlockEditingState_returnsMoveWhenMove()
+      selectBlockEditingState_returnsResizeWhenResize()
+      selectCurrentCell_returnsCellWhenAtTop()
+      selectCurrentCell_returnsCellWhenInMiddle()
+      selectCurrentCell_returnsCellWhenAtBottom()
+      selectHasOverlap_returnsFalseIfNoOtherBlocks()
+      selectHasOverlap_returnsFalseIfNoOverlap()
+      selectHasOverlap_returnsTrueIfInsertedOverlapsEnd()
+      selectHasOverlap_returnsTrueIfInsertedOverlapsStart()
+      selectHasOverlap_returnsTrueIfInsertedOverlapsInside()
+      selectHasOverlap_returnsTrueIfInsertedOverlapsAround()
+
+      // Reducers
+
+      const updateCurrentTime_updatesCurrentTime = () => {
+        // Given
+        const testState = {...baseTestState, currentTime: 540}
+        const underTest = createStore(testState, reducer)
+        const expected = {...baseTestState, currentTime: 541}
+
+        // When
+        underTest.dispatch(updateCurrentTimeAction(541))
+        const actual = underTest.getState()
+
+        // Then
+        assert(updateCurrentTime_updatesCurrentTime.name, expected, actual)
+      }
+
+      const addBlock_addsBlockIfOpen = () => {
+        // Given
+        const testState = {...baseTestState, blocks: {}}
+        const underTest = createStore(testState, reducer)
+        const expected = {...baseTestState, blocks: {1: {id: 1, start: 600, end: 630, title: ''}}, editingBlock: editBlockAddResize(1), nextId: 2}
+
+        // When
+        underTest.dispatch(addBlockAction({y: 260, x: 100}))
+        const actual = underTest.getState()
+
+        // Then
+        assert(addBlock_addsBlockIfOpen.name, expected, actual)
+      }
+
+      const addBlock_doesNothingIfOverlappingBlock = () => {
+        // Given
+        const testState = {...baseTestState, blocks: {1: {id: 1, start: 600, end: 630, title: ''}}, nextId: 2}
+        const underTest = createStore(testState, reducer)
+        const expected = {...baseTestState, blocks: {1: {id: 1, start: 600, end: 630, title: ''}}, nextId: 2}
+
+        // When
+        underTest.dispatch(addBlockAction({y: 260, x: 100}))
+        const actual = underTest.getState()
+
+        // Then
+        assert(addBlock_doesNothingIfOverlappingBlock.name, expected, actual)
+      }
+
+      const removeBlock_removesBlock = () => {
+        // Given
+        const testState = {...baseTestState, blocks: {1: {id: 1, start: 600, end: 630, title: ''}}, nextId: 2}
+        const underTest = createStore(testState, reducer)
+        const expected = {...baseTestState, blocks: {}, nextId: 2}
+
+        // When
+        underTest.dispatch(removeBlockAction(1))
+        const actual = underTest.getState()
+
+        // Then
+        assert(removeBlock_removesBlock.name, expected, actual)
+      }
+
+      const removeBlock_doesNothingIfBlockDoesntExist = () => {
+        // Given
+        const testState = {...baseTestState, blocks: {1: {id: 1, start: 600, end: 630, title: ''}}, nextId: 2}
+        const underTest = createStore(testState, reducer)
+        const expected = {...baseTestState, blocks: {1: {id: 1, start: 600, end: 630, title: ''}}, nextId: 2}
+
+        // When
+        underTest.dispatch(removeBlockAction(2))
+        const actual = underTest.getState()
+
+        // Then
+        assert(removeBlock_doesNothingIfBlockDoesntExist.name, expected, actual)
+      }
+
+      const startMove_setsEditingBlock = () => {
+        // Given
+        const testState = {...baseTestState, blocks: {1: {id: 1, start: 600, end: 630, title: ''}}, nextId: 2}
+        const underTest = createStore(testState, reducer)
+        const expected = {...baseTestState, blocks: {1: {id: 1, start: 600, end: 630, title: ''}}, nextId: 2, editingBlock: editBlockMove(1, 10)}
+
+        // When
+        underTest.dispatch(startMoveAction(1, {y: 230, x: 100}))
+        const actual = underTest.getState()
+
+        // Then
+        assert(startMove_setsEditingBlock.name, expected, actual)
+      }
+
+      const startResize_setsEditingBlock = () => {
+        // Given
+        const testState = {...baseTestState, blocks: {1: {id: 1, start: 600, end: 630, title: ''}}, nextId: 2}
+        const underTest = createStore(testState, reducer)
+        const expected = {...baseTestState, blocks: {1: {id: 1, start: 600, end: 630, title: ''}}, nextId: 2, editingBlock: editBlockResize(1)}
+
+        // When
+        underTest.dispatch(startResizeAction(1))
+        const actual = underTest.getState()
+
+        // Then
+        assert(startResize_setsEditingBlock.name, expected, actual)
+      }
+
+      const endEdit_setsEditingBlock = () => {
+        // Given
+        const testState = {...baseTestState, blocks: {1: {id: 1, start: 600, end: 630, title: ''}}, nextId: 2, editingBlock: editBlockResize(1)}
+        const underTest = createStore(testState, reducer)
+        const expected = {...baseTestState, blocks: {1: {id: 1, start: 600, end: 630, title: ''}}, nextId: 2, editingBlock: editBlockNone()}
+
+        // When
+        underTest.dispatch(endEditAction())
+        const actual = underTest.getState()
+
+        // Then
+        assert(endEdit_setsEditingBlock.name, expected, actual)
+      }
+
+      const updateTitle_updatesTitle = () => {
+        // Given
+        const testState = {...baseTestState, blocks: {1: {id: 1, start: 600, end: 630, title: ''}}, nextId: 2}
+        const underTest = createStore(testState, reducer)
+        const expected = {...baseTestState, blocks: {1: {id: 1, start: 600, end: 630, title: 'New Title'}}, nextId: 2}
+
+        // When
+        underTest.dispatch(updateTitleAction(1, "New Title"))
+        const actual = underTest.getState()
+
+        // Then
+        assert(updateTitle_updatesTitle.name, expected, actual)
+      }
+
+      const handleEdit_doesNothingIfEditingTypeNone = () => {
+        // Given
+        const testState = {...baseTestState, blocks: {1: {id: 1, start: 600, end: 630, title: 'Title'}}, nextId: 2, editingBlock: editBlockNone()}
+        const underTest = createStore(testState, reducer)
+        const expected = {...baseTestState, blocks: {1: {id: 1, start: 600, end: 630, title: 'Title'}}, nextId: 2, editingBlock: editBlockNone()}
+        const coordinates = {y: 100, x: 100}
+
+        // When
+        underTest.dispatch(editAction(coordinates))
+        const actual = underTest.getState()
+
+        // Then
+        assert(handleEdit_doesNothingIfEditingTypeNone.name, expected, actual)
+      }
+
+      const handleEdit_doesNothingIfEditingTypeResizeAndOverlap = () => {
+        // Given
+        const testState = {...baseTestState, blocks: {1: {id: 1, start: 600, end: 630, title: 'Title'}, 2: {id: 2, start: 630, end: 660, title: 'Title 2'}}, nextId: 3, editingBlock: editBlockResize(1)}
+        const underTest = createStore(testState, reducer)
+        const expected = {...baseTestState, blocks: {1: {id: 1, start: 600, end: 630, title: 'Title'}, 2: {id: 2, start: 630, end: 660, title: 'Title 2'}}, nextId: 3, editingBlock: editBlockResize(1)}
+        const coordinates = {y: 220, x: 100}
+
+        // When
+        underTest.dispatch(editAction(coordinates))
+        const actual = underTest.getState()
+
+        // Then
+        assert(handleEdit_doesNothingIfEditingTypeResizeAndOverlap.name, expected, actual)
+      }
+
+      const handleEdit_doesNothingIfEditingTypeResizeAndLessThanMinSize = () => {
+        // Given
+        const testState = {...baseTestState, blocks: {1: {id: 1, start: 600, end: 630, title: 'Title'}}, nextId: 2, editingBlock: editBlockResize(1)}
+        const underTest = createStore(testState, reducer)
+        const expected = {...baseTestState, blocks: {1: {id: 1, start: 600, end: 630, title: 'Title'}}, nextId: 2, editingBlock: editBlockResize(1)}
+        const coordinates = {y: 250, x: 100}
+
+        // When
+        underTest.dispatch(editAction(coordinates))
+        const actual = underTest.getState()
+
+        // Then
+        assert(handleEdit_doesNothingIfEditingTypeResizeAndLessThanMinSize.name, expected, actual)
+      }
+
+      const handleEdit_doesNothingIfEditingTypeResizeAndAfterEndTime = () => {
+        // Given
+        const testState = {...baseTestState, blocks: {1: {id: 1, start: 600, end: 1140, title: 'Title'}}, nextId: 2, editingBlock: editBlockResize(1)}
+        const underTest = createStore(testState, reducer)
+        const expected = {...baseTestState, blocks: {1: {id: 1, start: 600, end: 1140, title: 'Title'}}, nextId: 2, editingBlock: editBlockResize(1)}
+        const coordinates = {y: 980, x: 100}
+
+        // When
+        underTest.dispatch(editAction(coordinates))
+        const actual = underTest.getState()
+
+        // Then
+        assert(handleEdit_doesNothingIfEditingTypeResizeAndOverlap.name, expected, actual)
+      }
+
+      const handleEdit_updatesBlockIfEditingTypeResize = () => {
+        // Given
+        const testState = {...baseTestState, blocks: {1: {id: 1, start: 600, end: 630, title: 'Title'}}, nextId: 2, editingBlock: editBlockResize(1)}
+        const underTest = createStore(testState, reducer)
+        const expected = {...baseTestState, blocks: {1: {id: 1, start: 600, end: 660, title: 'Title'}}, nextId: 2, editingBlock: editBlockResize(1)}
+        const coordinates = {y: 280, x: 100}
+
+        // When
+        underTest.dispatch(editAction(coordinates))
+        const actual = underTest.getState()
+
+        // Then
+        assert(handleEdit_updatesBlockIfEditingTypeResize.name, expected, actual)
+      }
+
+      const handleEdit_doesNothingIfEditingTypeMoveAndOverlap = () => {
+        // Given
+        const testState = {...baseTestState, blocks: {1: {id: 1, start: 600, end: 630, title: 'Title'}, 2: {id: 2, start: 630, end: 660, title: 'Title 2'}}, nextId: 3, editingBlock: editBlockMove(1, 10)}
+        const underTest = createStore(testState, reducer)
+        const expected = {...baseTestState, blocks: {1: {id: 1, start: 600, end: 630, title: 'Title'}, 2: {id: 2, start: 630, end: 660, title: 'Title 2'}}, nextId: 3, editingBlock: editBlockMove(1, 10)}
+        const coordinates = {y: 280, x: 100}
+
+        // When
+        underTest.dispatch(editAction(coordinates))
+        const actual = underTest.getState()
+
+        // Then
+        assert(handleEdit_doesNothingIfEditingTypeMoveAndOverlap.name, expected, actual)
+      }
+
+      const handleEdit_doesNothingIfEditingTypeMoveAndLessThanStartTime = () => {
+        // Given
+        const testState = {...baseTestState, blocks: {1: {id: 1, start: 420, end: 450, title: 'Title'}}, nextId: 2, editingBlock: editBlockMove(1, 10)}
+        const underTest = createStore(testState, reducer)
+        const expected = {...baseTestState, blocks: {1: {id: 1, start: 420, end: 450, title: 'Title'}}, nextId: 2, editingBlock: editBlockMove(1, 10)}
+        const coordinates = {y: -1, x: 100}
+
+        // When
+        underTest.dispatch(editAction(coordinates))
+        const actual = underTest.getState()
+
+        // Then
+        assert(handleEdit_doesNothingIfEditingTypeMoveAndLessThanStartTime.name, expected, actual)
+      }
+
+      const handleEdit_doesNothingIfEditingTypeMoveAndGreaterThanEndTime = () => {
+        // Given
+        const testState = {...baseTestState, blocks: {1: {id: 1, start: 1110, end: 1140, title: 'Title'}}, nextId: 2, editingBlock: editBlockMove(1, 10)}
+        const underTest = createStore(testState, reducer)
+        const expected = {...baseTestState, blocks: {1: {id: 1, start: 1110, end: 1140, title: 'Title'}}, nextId: 2, editingBlock: editBlockMove(1, 10)}
+        const coordinates = {y: 1000, x: 100}
+
+        // When
+        underTest.dispatch(editAction(coordinates))
+        const actual = underTest.getState()
+
+        // Then
+        assert(handleEdit_doesNothingIfEditingTypeMoveAndGreaterThanEndTime.name, expected, actual)
+      }
+
+      const handleEdit_updatesBlockIfEditingTypeMove = () => {
+        // Given
+        const testState = {...baseTestState, blocks: {1: {id: 1, start: 600, end: 630, title: 'Title'}}, nextId: 2, editingBlock: editBlockMove(1, 10)}
+        const underTest = createStore(testState, reducer)
+        const expected = {...baseTestState, blocks: {1: {id: 1, start: 630, end: 660, title: 'Title'}}, nextId: 2, editingBlock: editBlockMove(1, 10)}
+        const coordinates = {y: 280, x: 100}
+
+        // When
+        underTest.dispatch(editAction(coordinates))
+        const actual = underTest.getState()
+
+        // Then
+        assert(handleEdit_updatesBlockIfEditingTypeMove.name, expected, actual)
+      }
+
+      const handleEdit_updatesBlockIfEditingTypeMoveOverBlock = () => {
+        // Given
+        const testState = {...baseTestState, blocks: {1: {id: 1, start: 600, end: 630, title: 'Title'}, 2: {id: 2, start: 630, end: 660, title: 'Title 2'}}, nextId: 3, editingBlock: editBlockMove(1, 10)}
+        const underTest = createStore(testState, reducer)
+        const expected = {...baseTestState, blocks: {1: {id: 1, start: 660, end: 690, title: 'Title'}, 2: {id: 2, start: 630, end: 660, title: 'Title 2'}}, nextId: 3, editingBlock: editBlockMove(1, 10)}
+        const coordinates = {y: 320, x: 100}
+
+        // When
+        underTest.dispatch(editAction(coordinates))
+        const actual = underTest.getState()
+
+        // Then
+        assert(handleEdit_updatesBlockIfEditingTypeMoveOverBlock.name, expected, actual)
+      }
+
+      updateCurrentTime_updatesCurrentTime()
+      addBlock_addsBlockIfOpen()
+      addBlock_doesNothingIfOverlappingBlock()
+      removeBlock_removesBlock()
+      removeBlock_doesNothingIfBlockDoesntExist()
+      startMove_setsEditingBlock()
+      startResize_setsEditingBlock()
+      endEdit_setsEditingBlock()
+      updateTitle_updatesTitle()
+      handleEdit_doesNothingIfEditingTypeNone()
+      handleEdit_doesNothingIfEditingTypeResizeAndOverlap()
+      handleEdit_doesNothingIfEditingTypeResizeAndLessThanMinSize()
+      handleEdit_doesNothingIfEditingTypeResizeAndAfterEndTime()
+      handleEdit_updatesBlockIfEditingTypeResize()
+      handleEdit_doesNothingIfEditingTypeMoveAndOverlap()
+      handleEdit_doesNothingIfEditingTypeMoveAndLessThanStartTime()
+      handleEdit_doesNothingIfEditingTypeMoveAndGreaterThanEndTime()
+      handleEdit_updatesBlockIfEditingTypeMove()
+      handleEdit_updatesBlockIfEditingTypeMoveOverBlock()
+
+      // Action Creators
+
+      const updateCurrentTimeAction_returnsTheCorrectAction = () => {
+        // Given
+        const expected = {type: TIMEBLOCK_ACTION.UPDATE_CURRENT_TIME, payload: {currentTime: 601}}
+
+        // When
+        const actual = updateCurrentTimeAction(601)
+
+        // Then
+        assert(updateCurrentTimeAction_returnsTheCorrectAction.name, expected, actual)
+      }
+
+      const addBlockAction_returnsTheCorrectAction = () => {
+        // Given
+        const expected = {type: TIMEBLOCK_ACTION.ADD_BLOCK, payload: {coordinates: {x: 100, y: 200}}}
+
+        // When
+        const actual = addBlockAction({x: 100, y: 200})
+
+        // Then
+        assert(addBlockAction_returnsTheCorrectAction.name, expected, actual)
+      }
+
+      const removeBlockAction_returnsTheCorrectAction = () => {
+        // Given
+        const expected = {type: TIMEBLOCK_ACTION.REMOVE_BLOCK, payload: {id: 10}}
+
+        // When
+        const actual = removeBlockAction(10)
+
+        // Then
+        assert(removeBlockAction_returnsTheCorrectAction.name, expected, actual)
+      }
+
+      const startMoveAction_returnsTheCorrectAction = () => {
+        // Given
+        const expected = {type: TIMEBLOCK_ACTION.START_MOVE, payload: {id: 10, coordinates: {x: 100, y: 200}}}
+
+        // When
+        const actual = startMoveAction(10, {x: 100, y: 200})
+
+        // Then
+        assert(startMoveAction_returnsTheCorrectAction.name, expected, actual)
+      }
+
+      const startResizeAction_returnsTheCorrectAction = () => {
+        // Given
+        const expected = {type: TIMEBLOCK_ACTION.START_RESIZE, payload: {id: 10}}
+
+        // When
+        const actual = startResizeAction(10)
+
+        // Then
+        assert(startResizeAction_returnsTheCorrectAction.name, expected, actual)
+      }
+
+      const editAction_returnsTheCorrectAction = () => {
+        // Given
+        const expected = {type: TIMEBLOCK_ACTION.EDIT, payload: {coordinates: {x: 100, y: 200}}}
+
+        // When
+        const actual = editAction({x: 100, y: 200})
+
+        // Then
+        assert(editAction_returnsTheCorrectAction.name, expected, actual)
+      }
+
+      const endEditAction_returnsTheCorrectAction = () => {
+        // Given
+        const expected = {type: TIMEBLOCK_ACTION.END_EDIT}
+
+        // When
+        const actual = endEditAction()
+
+        // Then
+        assert(endEditAction_returnsTheCorrectAction.name, expected, actual)
+      }
+
+      const updateTitleAction_returnsTheCorrectAction = () => {
+        // Given
+        const expected = {type: TIMEBLOCK_ACTION.UPDATE_TITLE, payload: {id: 10, title: "New Title"}}
+
+        // When
+        const actual = updateTitleAction(10, "New Title")
+
+        // Then
+        assert(updateTitleAction_returnsTheCorrectAction.name, expected, actual)
+      }
+
+      updateCurrentTimeAction_returnsTheCorrectAction()
+      addBlockAction_returnsTheCorrectAction()
+      removeBlockAction_returnsTheCorrectAction()
+      startMoveAction_returnsTheCorrectAction()
+      startResizeAction_returnsTheCorrectAction()
+      editAction_returnsTheCorrectAction()
+      endEditAction_returnsTheCorrectAction()
+      updateTitleAction_returnsTheCorrectAction()
+
+      // Middleware
+
+      const mousemoveFilterMiddleware_returnsNullIfActionEditAndEditBlockNone = () => {
+        // Given
+        const testState = {...baseTestState, editingBlock: editBlockNone()}
+
+        const action = editAction({x: 100, y: 200}, {x: 300, y: 400})
+
+        const expected = null
+
+        // When
+        const actual = mousemoveFilterMiddleware(action, testState);
+
+        // Then
+        assert(mousemoveFilterMiddleware_returnsNullIfActionEditAndEditBlockNone.name, expected, actual)
+      }
+
+      const mousemoveFilterMiddleware_returnsActionIfActionEditAndEditBlockNotNone = () => {
+        // Given
+        const testState = {...baseTestState, editingBlock: editBlockResize(10)}
+
+        const action = editAction({x: 100, y: 200}, {x: 300, y: 400})
+
+        const expected = action
+
+        // When
+        const actual = mousemoveFilterMiddleware(action, testState);
+
+        // Then
+        assert(mousemoveFilterMiddleware_returnsActionIfActionEditAndEditBlockNotNone.name, expected, actual)
+      }
+
+      const mousemoveFilterMiddleware_returnsActionIfActionNotEditAndEditBlockNone = () => {
+        // Given
+        const testState = {...baseTestState, editingBlock: editBlockNone()}
+
+        const action = updateTitleAction(10, "New Title")
+
+        const expected = action
+
+        // When
+        const actual = mousemoveFilterMiddleware(action, testState);
+
+        // Then
+        assert(mousemoveFilterMiddleware_returnsActionIfActionNotEditAndEditBlockNone.name, expected, actual)
+      }
+
+      const mousemoveFilterMiddleware_returnsActionIfActionNotEditAndEditBlockNotNone = () => {
+        // Given
+        const testState = {...baseTestState, editingBlock: editBlockResize(10)}
+
+        const action = updateTitleAction(10, "New Title")
+
+        const expected = action
+
+        // When
+        const actual = mousemoveFilterMiddleware(action, testState);
+
+        // Then
+        assert(mousemoveFilterMiddleware_returnsActionIfActionNotEditAndEditBlockNotNone.name, expected, actual)
+      }
+
+      mousemoveFilterMiddleware_returnsNullIfActionEditAndEditBlockNone()
+      mousemoveFilterMiddleware_returnsActionIfActionEditAndEditBlockNotNone()
+      mousemoveFilterMiddleware_returnsActionIfActionNotEditAndEditBlockNone()
+      mousemoveFilterMiddleware_returnsActionIfActionNotEditAndEditBlockNotNone()
+
+      // Edit Block Builders
+
+      const editBlockNone_returnsCorrectEditingBlockState = () => {
+        // Given
+        const expected = {type: EditBlockType.NONE}
+
+        // When
+        const actual = editBlockNone()
+
+        // Then
+        assert(editBlockNone_returnsCorrectEditingBlockState.name, expected, actual)
+      }
+
+      const editBlockResize_returnsCorrectEditingBlockState = () => {
+        // Given
+        const expected = {type: EditBlockType.RESIZE, id: 10, isAdd: false}
+
+        // When
+        const actual = editBlockResize(10)
+
+        // Then
+        assert(editBlockResize_returnsCorrectEditingBlockState.name, expected, actual)
+      }
+
+      const editBlockAddResize_returnsCorrectEditingBlockState = () => {
+        // Given
+        const expected = {type: EditBlockType.RESIZE, id: 10, isAdd: true}
+
+        // When
+        const actual = editBlockAddResize(10)
+
+        // Then
+        assert(editBlockAddResize_returnsCorrectEditingBlockState.name, expected, actual)
+      }
+
+      const editBlockMove_returnsCorrectEditingBlockState = () => {
+        // Given
+        const expected = {type: EditBlockType.MOVE, id: 10, offset: 600}
+
+        // When
+        const actual = editBlockMove(10, 600)
+
+        // Then
+        assert(editBlockMove_returnsCorrectEditingBlockState.name, expected, actual)
+      }
+
+      editBlockNone_returnsCorrectEditingBlockState()
+      editBlockResize_returnsCorrectEditingBlockState()
+      editBlockAddResize_returnsCorrectEditingBlockState()
+      editBlockMove_returnsCorrectEditingBlockState()
+    }
+  </script>
+</body>
+
+</html>
