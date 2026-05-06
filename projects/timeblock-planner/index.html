@@ -117,16 +117,14 @@
       white-space: nowrap;
       overflow: hidden;
       position: absolute;
+      background: none;
+      border: none;
+      font-size: 1rem;
     }
 
     .block-title:focus {
-      outline: none;
       text-overflow: clip;
-    }
-
-    .block-title:empty::before {
-      content: 'Untitled Block';
-      color: var(--color-content-secondary);
+      outline: none;
     }
 
     .close-button {
@@ -809,11 +807,11 @@
           newBlock.classList.add("time-block")
           newBlock.id = `block-${blockId}`
 
-          const newTitle = document.createElement("span")
+          const newTitle = document.createElement("input")
           newTitle.id = `title-${block.id}`
-          newTitle.contentEditable = true
+          newTitle.placeholder = "Untitled Block"
           newTitle.onblur = (e) => {
-            store.dispatch(updateTitleAction(block.id, e.target.textContent))
+            store.dispatch(updateTitleAction(block.id, e.target.value))
           }
           newTitle.classList.add("block-title")
 
@@ -833,7 +831,7 @@
           dragHandleContainer.onmousedown = (e) => {
             e.stopPropagation()
             const blockTitle = document.getElementById(`title-${block.id}`)
-            store.dispatch(updateTitleAction(block.id, blockTitle.textContent))
+            store.dispatch(updateTitleAction(block.id, blockTitle.value))
 
             store.dispatch(startResizeAction(block.id))
           }
@@ -846,10 +844,9 @@
 
           newBlock.onmousedown = (e) => {
             const blockTitle = document.getElementById(`title-${block.id}`)
-            store.dispatch(updateTitleAction(block.id, blockTitle.textContent))
+            store.dispatch(updateTitleAction(block.id, blockTitle.value))
 
             const coordinates = getTimelineCoordinates(e)
-            // const coordinates = {x: e.pageX, y: e.pageY}
             store.dispatch(startMoveAction(block.id, coordinates))
           }
 
@@ -875,7 +872,9 @@
         blockElem.style.height = `${end - 5}px`
 
         const blockTitle = document.getElementById(`title-${block.id}`)
-        blockTitle.textContent = block.title
+        if (blockTitle.textContent !== block.title) {
+          blockTitle.textContent = block.title
+        }
       }
     }
 
@@ -893,12 +892,6 @@
       if (editingBlock.type === EditBlockType.NONE && prevEditingBlock.type === EditBlockType.RESIZE && prevEditingBlock.isAdd) {
         const title = document.getElementById(`title-${prevEditingBlock.id}`)
         title.focus()
-
-        const range = document.createRange()
-        range.selectNodeContents(title)
-        const selection = window.getSelection()
-        selection.removeAllRanges()
-        selection.addRange(range)
       }
     }
   </script>
